@@ -6,3 +6,9 @@ tmp/
 *.tsbuildinfo
 .env*
 !.env.example
+
+# Generated from docs/scope.json via npm run docs
+/Kiseki Architecture & Technical Scope.html
+/Kiseki Architecture & Technical Scope.pdf
+docs/archive/kiseki-scope-*.html
+docs/archive/kiseki-scope-*.pdf

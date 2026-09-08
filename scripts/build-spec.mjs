@@ -15,7 +15,7 @@ for (const extension of ['html', 'pdf']) {
 const scope = JSON.parse(await readFile('docs/scope.json', 'utf8'));
 const css =
   '@page{size:A4;margin:15mm 16mm 17mm}*{box-sizing:border-box}body{margin:0;color:#253148;font:10pt/1.5 "Segoe UI",sans-serif}.sheet{break-before:page}.sheet:first-child{break-before:auto}header{border-bottom:2px solid #b58b42;padding-bottom:12px;margin-bottom:20px}h1{font:25pt/1.25 Georgia,serif;color:#10213b;margin:0 0 8px}h2{font-size:16pt;font-weight:500;color:#152743;margin:0 0 16px}h3{font-size:11pt;color:#243e62;margin:17px 0 6px}p{margin:7px 0}ul{padding-left:19px;margin:7px 0}li{margin:5px 0}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:9pt}th,td{border:1px solid #d9dde5;padding:7px 9px;vertical-align:top;text-align:left}th{background:#eef1f6}pre{font:8.5pt/1.5 Consolas,monospace;white-space:pre-wrap;background:#f2f4f7;padding:13px;border-left:3px solid #b58b42}.small,.meta{color:#66748a;font-size:8pt}.note{background:#f7f3e9;border-left:3px solid #b58b42;padding:12px;margin:16px 0}tr,pre,.note{break-inside:avoid}';
-const header = `<header><h1>Kiseki · 奇跡</h1><p>The Micro-Wins Jar · Product &amp; Technical Scope</p><p class="meta">Version ${scope.version} · ${scope.date} · Full PWA release scope</p></header>`;
+const header = `<header><h1>Kiseki · 奇跡</h1><p>The Micro-Wins Jar · Product &amp; Technical Scope</p><p class="meta">Version ${scope.version} · ${scope.date} · PWA v1 and Kiseki Pass stage</p></header>`;
 const body = scope.sections
   .map(
     (s, i) =>
