@@ -1,5 +1,5 @@
 import { LayoutGroup, motion } from 'motion/react';
-import { Settings } from 'lucide-react';
+import { Settings, Volume2, VolumeX } from 'lucide-react';
 import { COLORS, PALETTE } from '../lib/models';
 import { play } from '../lib/sensory';
 import type { T } from '../lib/i18n';
@@ -9,11 +9,15 @@ export function Header({
   view,
   onView,
   onSettings,
+  ambientMuted,
+  onAmbientMute,
   t,
 }: {
   view: View;
   onView: (next: View) => void;
   onSettings: () => void;
+  ambientMuted: boolean;
+  onAmbientMute: (muted: boolean) => void;
   t: T;
 }) {
   return (
@@ -70,19 +74,34 @@ export function Header({
             ))}
           </nav>
         </LayoutGroup>
-        <motion.button
-          type="button"
-          className="icon-button settings-button"
-          aria-label={t.settings}
-          whileHover={{ rotate: 20 }}
-          whileTap={{ scale: 0.9, rotate: 48 }}
-          onClick={() => {
-            play('tap');
-            onSettings();
-          }}
-        >
-          <Settings size={25} />
-        </motion.button>
+        <div className="header-actions">
+          <motion.button
+            type="button"
+            className="icon-button mute-button"
+            aria-label={ambientMuted ? t.ambientUnmute : t.ambientMute}
+            aria-pressed={ambientMuted}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              play('tap');
+              onAmbientMute(!ambientMuted);
+            }}
+          >
+            {ambientMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}
+          </motion.button>
+          <motion.button
+            type="button"
+            className="icon-button settings-button"
+            aria-label={t.settings}
+            whileHover={{ rotate: 20 }}
+            whileTap={{ scale: 0.9, rotate: 48 }}
+            onClick={() => {
+              play('tap');
+              onSettings();
+            }}
+          >
+            <Settings size={25} />
+          </motion.button>
+        </div>
       </div>
     </header>
   );

@@ -36,6 +36,7 @@ test('long multilingual Wrapped text fits above the footer', async ({ page }) =>
       id: 'user',
       language: 'en',
       soundVolume: 0,
+      ambientMuted: true,
       reducedMotion: true,
       motionEnabled: false,
     },

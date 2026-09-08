@@ -1,20 +1,94 @@
 let context: AudioContext | undefined;
 let volume = 0.35;
+let muted = false;
+let unlocked = false;
+let ambient: HTMLAudioElement | undefined;
+let fading: number | undefined;
 const NOTES = [
   261.63, 293.66, 329.63, 349.23, 392, 440, 466.16, 523.25, 587.33, 659.25, 698.46, 783.99, 880,
   1046.5,
 ];
+export const AMBIENT_SRC = '/assets/kiseki/runtime/origami-stars.mp3';
+export const AMBIENT_GAIN = 0.07;
 export type Cue = 'tap' | 'open' | 'close' | 'fold' | 'toast' | 'page' | 'lift';
+export function ambientGain(master: number) {
+  if (!Number.isFinite(master) || master <= 0) return 0;
+  return Math.min(1, master) * AMBIENT_GAIN;
+}
+export function ambientShouldPlay(master: number, hidden: boolean, isUnlocked: boolean, isMuted = false) {
+  return Boolean(isUnlocked && !hidden && !isMuted && ambientGain(master) > 0);
+}
 export function setSoundVolume(value: number) {
   volume = Math.min(1, Math.max(0, value));
+  syncAmbient();
+}
+export function setAmbientMuted(value: boolean) {
+  muted = Boolean(value);
+  syncAmbient();
 }
 export function unlockAudio() {
   try {
     context ??= new AudioContext();
     void context.resume().catch(() => {});
+    unlocked = true;
+    syncAmbient();
   } catch {
     /* Audio is optional. */
   }
+}
+function hiddenPage() {
+  return typeof document !== 'undefined' && document.hidden;
+}
+function ensureAmbient() {
+  if (ambient || typeof Audio === 'undefined') return ambient;
+  const el = new Audio(AMBIENT_SRC);
+  el.loop = true;
+  el.preload = 'auto';
+  el.setAttribute('playsinline', '');
+  el.setAttribute('aria-hidden', 'true');
+  el.volume = 0;
+  ambient = el;
+  document.body?.appendChild(el);
+  return el;
+}
+function applyAmbientVolume(el: HTMLAudioElement, value: number, stop = false) {
+  el.volume = Math.min(1, Math.max(0, value));
+  if (stop && value <= 0 && !el.paused) el.pause();
+}
+function syncAmbient() {
+  const want = ambientShouldPlay(volume, hiddenPage(), unlocked, muted);
+  if (!want && !ambient) return;
+  const el = ensureAmbient();
+  if (!el) return;
+  const target = want ? ambientGain(volume) : 0;
+  if (target > 0 && el.paused) void el.play().catch(() => {});
+  if (typeof requestAnimationFrame === 'undefined') {
+    applyAmbientVolume(el, target, target <= 0);
+    return;
+  }
+  if (fading) cancelAnimationFrame(fading);
+  const from = el.volume;
+  const started = performance.now();
+  const ms = from < target ? 1800 : 500;
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - started) / ms);
+    applyAmbientVolume(el, from + (target - from) * t, t >= 1 && target <= 0);
+    if (t < 1) fading = requestAnimationFrame(tick);
+    else fading = undefined;
+  };
+  fading = requestAnimationFrame(tick);
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', syncAmbient);
+}
+if (typeof window !== 'undefined') {
+  const once = () => {
+    window.removeEventListener('pointerdown', once);
+    window.removeEventListener('keydown', once);
+    unlockAudio();
+  };
+  window.addEventListener('pointerdown', once);
+  window.addEventListener('keydown', once);
 }
 function tone(freq: number, vol: number, at: number, dur: number, type: OscillatorType = 'sine') {
   if (!context || context.state !== 'running' || vol <= 0) return;
@@ -61,6 +135,14 @@ export function play(cue: Cue) {
 export function chime(note: number, vol = volume) {
   unlockAudio();
   tone(NOTES[note % NOTES.length], vol, 0, 1.2);
+}
+export function clink(note: number, vol = volume, at = 0) {
+  unlockAudio();
+  const v = Math.min(1, Math.max(0, vol)) * 0.26;
+  if (v <= 0) return;
+  const f = NOTES[((note % NOTES.length) + NOTES.length) % NOTES.length];
+  tone(f, v, at, 0.3, 'sine');
+  tone(f * 1.498, v * 0.22, at + 0.02, 0.18, 'triangle');
 }
 export class ShakeDetector {
   private previous = -Infinity;

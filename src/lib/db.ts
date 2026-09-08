@@ -31,8 +31,10 @@ const newJar = (): Jar => ({
 });
 export async function initialize(database = db) {
   await database.transaction('rw', database.jars, database.preferences, async () => {
-    if (!(await database.preferences.get('user')))
-      await database.preferences.add(defaultPreferences());
+    const prefs = await database.preferences.get('user');
+    if (!prefs) await database.preferences.add(defaultPreferences());
+    else if (typeof prefs.ambientMuted !== 'boolean')
+      await database.preferences.update('user', { ambientMuted: false });
     if (!(await database.jars.toArray()).some((j) => j.archivedAt === null))
       await database.jars.add(newJar());
   });

@@ -1,5 +1,5 @@
 import { drawStar } from './physics';
-import { PALETTE, graphemes, summarizeMonth, type Star, type Language } from './models';
+import { PALETTE, graphemes, starRadius, starScale, summarizeMonth, type Star, type Language } from './models';
 import { dictionaries, locale } from './i18n';
 function seed(id: string) {
   let h = 2166136261;
@@ -104,7 +104,7 @@ export async function renderCard(
       summary.kisekis.forEach((star, i) => {
         const x = 120 + (i % 16) * 53;
         const y = 818 + Math.floor(i / 16) * 34;
-        drawStar(ctx, x, y, 11, PALETTE[star.colorId], seed(star.id) / 200, star.category);
+        drawStar(ctx, x, y, 6.4 + starScale(star.text) * 8.2, PALETTE[star.colorId], seed(star.id) / 200, star.category);
       });
     } else {
       const placed = placeMonthKisekis(summary.kisekis, 1280, 400);
@@ -114,7 +114,7 @@ export async function renderCard(
       placed.forEach(({ x, y }, i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
       ctx.stroke();
       placed.forEach(({ star, x, y, r, angle }) =>
-        drawStar(ctx, x, y, r, PALETTE[star.colorId], angle, star.category),
+        drawStar(ctx, x, y, r * (0.72 + starScale(star.text) * 0.5), PALETTE[star.colorId], angle, star.category),
       );
     }
   }
@@ -143,7 +143,7 @@ export async function renderCard(
         if (lines.length * (size + 9) > 194) size--;
       } while (lines.length * (size + 9) > 194 && size > 15);
       const top = 980 + index * 240;
-      drawStar(ctx, 540, top - 20, 14, PALETTE[memory.colorId], 0, memory.category);
+      drawStar(ctx, 540, top - 20, starRadius(memory) * 0.92, PALETTE[memory.colorId], 0, memory.category);
       lines.forEach((line, i) => text(line, top + 27 + i * (size + 9), size));
     });
   }

@@ -59,3 +59,63 @@ export function openingRemark(language: Language, random = Math.random) {
   const list = REMARKS[language];
   return list[Math.min(list.length - 1, Math.floor(random() * list.length))];
 }
+export const TITLES: Record<Language, string[]> = {
+  en: [
+    'A Kiseki worth keeping',
+    'Something small, yours',
+    'A light you kept',
+    'What you noticed',
+    'A quiet win',
+    "Tonight's little miracle",
+    'Held with care',
+    'A star from this day',
+    'Worth remembering',
+    'Kept here, gently',
+    'Yours, in the jar',
+    'This one counts',
+    'A little miracle, kept',
+    'Soft light, remembered',
+    'Folded in, with love',
+    'Tonight you noticed',
+  ],
+  el: [
+    'Ένα Kiseki που αξίζει',
+    'Κάτι μικρό, δικό σου',
+    'Φως που φύλαξες',
+    'Αυτό που πρόσεξες',
+    'Μια ήσυχη νίκη',
+    'Το μικρό θαύμα της στιγμής',
+    'Κρατημένο με φροντίδα',
+    'Ένα αστέρι από σήμερα',
+    'Αξίζει να το θυμάσαι',
+    'Εδώ φυλάχτηκε',
+    'Ένα Kiseki, δικό σου',
+    'Αυτό μετράει',
+    'Ένα μικρό θαύμα, δικό σου',
+    'Απαλό φως, φυλαγμένο',
+    'Διπλωμένο με αγάπη',
+    'Απόψε το πρόσεξες',
+  ],
+  ja: [
+    '大切にしたいKiseki',
+    '小さな、あなたのもの',
+    '残した光',
+    '気づいたこと',
+    '静かな、小さな勝ち',
+    '今の小さな奇跡',
+    'やさしく、残した',
+    '今日の星',
+    '覚えておきたい',
+    'ここに、置いた',
+    '瓶の中の、あなた',
+    'これは、数えられる',
+    '小さな奇跡を、残した',
+    'やわらかい光',
+    '愛をこめて、折った',
+    '今夜、気づいた',
+  ],
+};
+export function memoryTitle(language: Language, random = Math.random) {
+  const list = TITLES[language];
+  return list[Math.min(list.length - 1, Math.floor(random() * list.length))];
+}

@@ -201,6 +201,7 @@ export interface Preferences {
   id: 'user';
   language: Language;
   soundVolume: number;
+  ambientMuted: boolean;
   reducedMotion: boolean;
   motionEnabled: boolean;
 }
@@ -218,12 +219,32 @@ export const graphemes = (text: string) =>
     new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
     (part) => part.segment,
   );
+export function wordCount(text: string) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+export function starMass(text: string) {
+  const trimmed = text.trim();
+  const marks = Math.min(180, graphemes(trimmed).length);
+  const words = wordCount(trimmed);
+  const byMarks = marks / 180;
+  const byWords = words <= 1 ? 0 : Math.min(1, (words - 1) / 22);
+  return Math.min(1, byMarks * 0.58 + byWords * 0.42);
+}
+export function starScale(text: string) {
+  return Math.pow(starMass(text), 0.68);
+}
+export function starRadius(star: Pick<Star, 'text' | 'category'>) {
+  const base = CATEGORY_TRAITS[star.category].radius;
+  const size = base * (0.5 + starScale(star.text) * 0.88);
+  return Math.min(20.6, Math.max(7.1, size));
+}
 export function defaultPreferences(): Preferences {
   const language = typeof navigator !== 'undefined' ? navigator.language.slice(0, 2) : 'en';
   return {
     id: 'user',
     language: language === 'el' || language === 'ja' ? language : 'en',
     soundVolume: 0.35,
+    ambientMuted: false,
     reducedMotion:
       typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     motionEnabled: false,

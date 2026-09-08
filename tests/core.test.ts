@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KisekiDatabase, initialize, addStar, exportBackup, mergeBackup } from '../src/lib/db';
 import {
   graphemes,
+  wordCount,
+  starMass,
+  starRadius,
   weight,
   recall,
   summarizeMonth,
@@ -14,13 +17,15 @@ import {
   PALETTE,
   type Star,
   type Backup,
+  type Preferences,
 } from '../src/lib/models';
+import Matter from 'matter-js';
 import { parseBackup } from '../src/lib/backup';
-import { JarWorld, hitTest } from '../src/lib/physics';
-import { ShakeDetector } from '../src/lib/sensory';
+import { JarWorld, hitTest, pointInJar } from '../src/lib/physics';
+import { ShakeDetector, ambientGain, ambientShouldPlay, AMBIENT_GAIN } from '../src/lib/sensory';
 import { detectInstall } from '../src/lib/install';
 import { loadingQuote } from '../src/lib/quotes';
-import { REMARKS, openingRemark } from '../src/lib/remarks';
+import { REMARKS, TITLES, memoryTitle, openingRemark } from '../src/lib/remarks';
 let db: KisekiDatabase;
 beforeEach(async () => {
   db = new KisekiDatabase(`test-${crypto.randomUUID()}`);
@@ -46,6 +51,18 @@ describe('local storage and capacity', () => {
     await Promise.all([initialize(db), initialize(db)]);
     expect(await db.jars.count()).toBe(1);
     expect((await db.preferences.get('user'))?.id).toBe('user');
+    expect((await db.preferences.get('user'))?.ambientMuted).toBe(false);
+  });
+  it('fills ambientMuted on existing preferences', async () => {
+    await db.preferences.put({
+      id: 'user',
+      language: 'en',
+      soundVolume: 0.35,
+      reducedMotion: false,
+      motionEnabled: false,
+    } as Preferences);
+    await initialize(db);
+    expect((await db.preferences.get('user'))?.ambientMuted).toBe(false);
   });
   it('stores before returning and counts graphemes', async () => {
     expect(graphemes('👨‍👩‍👧‍👦ά').length).toBe(2);
@@ -124,6 +141,13 @@ describe('backup validation and merge', () => {
     }
     expect(() =>
       parseBackup(JSON.stringify({ ...b, preferences: { ...b.preferences, soundVolume: NaN } })),
+    ).toThrow();
+    expect(
+      parseBackup(JSON.stringify({ ...b, preferences: { ...b.preferences, ambientMuted: undefined } }))
+        .preferences.ambientMuted,
+    ).toBe(false);
+    expect(() =>
+      parseBackup(JSON.stringify({ ...b, preferences: { ...b.preferences, ambientMuted: 'yes' } })),
     ).toThrow();
   });
   it('rolls back an entire failed import', async () => {
@@ -206,14 +230,82 @@ describe('kiseki spectrum and character', () => {
     expect(CATEGORY_TRAITS.joy.impulseY).toBeGreaterThan(CATEGORY_TRAITS.rest.impulseY);
     expect(CATEGORY_TRAITS.milestone.density).toBeGreaterThan(CATEGORY_TRAITS.joy.density);
   });
+  it('grows the origami with the writing, from a whisper to a long keep', () => {
+    const tiny = starRadius({ text: 'ok', category: 'effort' });
+    const couple = starRadius({ text: 'thank you', category: 'effort' });
+    const sentence = starRadius({
+      text: 'I sat with the tea until it cooled.',
+      category: 'effort',
+    });
+    const letter = starRadius({
+      text: 'I noticed the small brave thing and kept it, then another, then the quiet after.',
+      category: 'effort',
+    });
+    const fullest = starRadius({ text: 'kept '.repeat(36).trim(), category: 'effort' });
+    expect(wordCount('thank you')).toBe(2);
+    expect(tiny).toBeLessThan(couple);
+    expect(couple).toBeLessThan(sentence);
+    expect(sentence).toBeLessThan(letter);
+    expect(letter).toBeLessThanOrEqual(fullest);
+    expect(tiny).toBeLessThan(9.2);
+    expect(fullest).toBeGreaterThan(16);
+    expect(starRadius({ text: 'ok', category: 'milestone' })).toBeGreaterThan(tiny);
+    expect(starMass('小さな休')).toBeLessThan(starMass('今日は小さな勇気を持てた、それで十分だった。'));
+  });
   it('picks a seated kiseki under a tap and ignores empty space', () => {
-    const w = new JarWorld();
-    w.add('a', true, 'joy');
-    const body = w.bodies.get('a')!;
     const star = sample(1, { id: 'a', category: 'joy', colorId: 'aurora' });
+    const w = new JarWorld();
+    w.add('a', true, 'joy', star.text);
+    const body = w.bodies.get('a')!;
     const map = new Map([['a', star]]);
     expect(hitTest([body], map, body.position.x, body.position.y)?.id).toBe('a');
     expect(hitTest([body], map, 20, 20)).toBeNull();
+    expect(pointInJar(200, 220)).toBe(true);
+    expect(pointInJar(10, 10)).toBe(false);
+    w.dispose();
+  });
+  it('jostles seated stars like a tapped jar instead of tossing them up', () => {
+    const w = new JarWorld();
+    for (let i = 0; i < 12; i++) w.add(String(i), true, 'joy', 'a quiet win');
+    w.jostle(200, 300);
+    const meanY =
+      [...w.bodies.values()].reduce((sum, b) => sum + b.velocity.y, 0) / w.bodies.size;
+    expect(meanY).toBeGreaterThan(-0.85);
+    expect(Math.hypot(w.bodies.get('0')!.velocity.x, w.bodies.get('0')!.velocity.y)).toBeGreaterThan(
+      0.5,
+    );
+    for (let s = 0; s < 24; s++) w.step();
+    expect([...w.bodies.values()].some((b) => Math.hypot(b.velocity.x, b.velocity.y) > 0.04)).toBe(
+      true,
+    );
+    for (let s = 0; s < 900; s++) w.step();
+    for (const body of w.bodies.values()) {
+      expect(body.position.x).toBeGreaterThan(80);
+      expect(body.position.x).toBeLessThan(320);
+      expect(body.position.y).toBeLessThan(380);
+    }
+    w.dispose();
+  });
+  it('wakes sleeping stars when the jar is jostled', () => {
+    const w = new JarWorld();
+    for (let i = 0; i < 8; i++) w.add(String(i), true, 'joy', 'a quiet win');
+    for (let s = 0; s < 120; s++) w.step();
+    for (const body of w.bodies.values()) Matter.Sleeping.set(body, true);
+    w.jostle(200, 300);
+    expect([...w.bodies.values()].every((b) => b.isSleeping)).toBe(false);
+    expect(
+      [...w.bodies.values()].some((b) => Math.hypot(b.velocity.x, b.velocity.y) > 0.8),
+    ).toBe(true);
+    for (let s = 0; s < 24; s++) w.step();
+    expect([...w.bodies.values()].some((b) => Math.hypot(b.velocity.x, b.velocity.y) > 0.04)).toBe(
+      true,
+    );
+    for (let s = 0; s < 900; s++) w.step();
+    for (const body of w.bodies.values()) {
+      expect(body.position.x).toBeGreaterThan(80);
+      expect(body.position.x).toBeLessThan(320);
+      expect(body.position.y).toBeLessThan(380);
+    }
     w.dispose();
   });
 });
@@ -289,6 +381,14 @@ describe('install detection and loading quotes', () => {
     expect(openingRemark('el', () => 0.99)).toBe(REMARKS.el[REMARKS.el.length - 1]);
     expect(openingRemark('ja', () => 0)).not.toBe(openingRemark('en', () => 0));
   });
+  it('picks a different memory title each time and keeps languages in step', () => {
+    expect(TITLES.en.length).toBeGreaterThanOrEqual(12);
+    expect(TITLES.el).toHaveLength(TITLES.en.length);
+    expect(TITLES.ja).toHaveLength(TITLES.en.length);
+    expect(memoryTitle('en', () => 0)).toBe(TITLES.en[0]);
+    expect(memoryTitle('el', () => 0.99)).toBe(TITLES.el[TITLES.el.length - 1]);
+    expect(memoryTitle('el', () => 0)).not.toBe(memoryTitle('el', () => 0.99));
+  });
 });
 describe('physics and sensor safeguards', () => {
   it('contains 45 sequential stars through repeated shakes and releases the world', () => {
@@ -313,6 +413,42 @@ describe('physics and sensor safeguards', () => {
     w.dispose();
     expect(w.engine.world.bodies).toHaveLength(0);
   });
+  it('lifts the chosen star to the mouth, shines, then can fall home', () => {
+    const w = new JarWorld();
+    w.add('a', true, 'joy', 'a quiet evening with tea');
+    const start = w.bodies.get('a')!.position.y;
+    expect(w.lift('a')).toBe(true);
+    w.stir();
+    for (let i = 0; i < 140; i++) w.step();
+    const risen = w.bodies.get('a')!;
+    expect(risen.position.y).toBeLessThan(start - 40);
+    expect(risen.position.y).toBeLessThan(70);
+    expect(w.apex).toBe(true);
+    expect(risen.isSensor).toBe(true);
+    w.release();
+    expect(w.lifting).toBeNull();
+    expect(risen.isSensor).toBe(false);
+    for (let i = 0; i < 90; i++) w.step();
+    expect(w.bodies.get('a')!.position.y).toBeGreaterThan(70);
+    w.dispose();
+  });
+  it('keeps ambient as a quiet bed under the master slider', () => {
+    expect(AMBIENT_GAIN).toBeLessThanOrEqual(0.08);
+    expect(ambientGain(0)).toBe(0);
+    expect(ambientGain(-1)).toBe(0);
+    expect(ambientGain(Number.NaN)).toBe(0);
+    expect(ambientGain(0.35)).toBeCloseTo(0.35 * AMBIENT_GAIN);
+    expect(ambientGain(0.35)).toBeLessThan(0.03);
+    expect(ambientGain(1)).toBe(AMBIENT_GAIN);
+    expect(ambientGain(2)).toBe(AMBIENT_GAIN);
+  });
+  it('plays ambient only after unlock, while visible, with volume', () => {
+    expect(ambientShouldPlay(0.35, false, false)).toBe(false);
+    expect(ambientShouldPlay(0.35, true, true)).toBe(false);
+    expect(ambientShouldPlay(0, false, true)).toBe(false);
+    expect(ambientShouldPlay(0.35, false, true)).toBe(true);
+    expect(ambientShouldPlay(0.35, false, true, true)).toBe(false);
+  });
   it('requires consecutive 2.5g samples and debounces, with no resting false positive', () => {
     const detector = new ShakeDetector();
     expect(detector.sample(0, 0, 9.80665, 0)).toBe(false);
@@ -323,5 +459,18 @@ describe('physics and sensor safeguards', () => {
     expect(detector.sample(30, 0, 0, 1800)).toBe(false);
     expect(detector.sample(30, 0, 0, 1900)).toBe(true);
     expect(detector.sample(NaN, 0, 0, 2000)).toBe(false);
+  });
+});
+describe('origami fold clips', () => {
+  it('keeps the same vertex count from sheet to star so the clip can morph', async () => {
+    const { foldClips } = await import('../src/lib/origami');
+    for (const tips of [5, 6, 8]) {
+      const clips = foldClips(tips);
+      const count = (clip: string) => clip.split(',').length;
+      expect(count(clips.sheet)).toBe(tips * 2);
+      expect(count(clips.cushion)).toBe(tips * 2);
+      expect(count(clips.kite)).toBe(tips * 2);
+      expect(count(clips.star)).toBe(tips * 2);
+    }
   });
 });

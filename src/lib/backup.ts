@@ -31,7 +31,8 @@ export function parseBackup(text: string): Backup {
     p.soundVolume < 0 ||
     p.soundVolume > 1 ||
     typeof p.reducedMotion !== 'boolean' ||
-    typeof p.motionEnabled !== 'boolean'
+    typeof p.motionEnabled !== 'boolean' ||
+    (p.ambientMuted !== undefined && typeof p.ambientMuted !== 'boolean')
   )
     return fail();
   const jars = new Set<string>();
@@ -96,6 +97,7 @@ export function parseBackup(text: string): Backup {
       id: 'user',
       language: p.language,
       soundVolume: p.soundVolume,
+      ambientMuted: p.ambientMuted === true,
       reducedMotion: p.reducedMotion,
       motionEnabled: p.motionEnabled,
     },

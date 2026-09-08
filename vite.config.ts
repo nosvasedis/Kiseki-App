@@ -38,6 +38,21 @@ export default defineConfig({
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/kiseki\/runtime\/origami-stars\.mp3$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'kiseki-ambient',
+              rangeRequests: true,
+              expiration: {
+                maxEntries: 2,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

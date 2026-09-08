@@ -29,85 +29,97 @@ const GEMS = [
 ];
 const CONSTELLATIONS = [
   {
-    d: 'M7 10 L15 14 L23 9 L31 16 L38 13 L33 22 L24 20',
+    left: '5%',
+    top: '7%',
+    width: 88,
+    rotate: -8,
+    d: 'M4 8 L12 18 L22 10 L32 22 L42 14',
     stars: [
-      [7, 10, 'gold'],
-      [15, 14, 'moon'],
-      [23, 9, 'ice'],
-      [31, 16, 'sakura'],
-      [38, 13, 'amber'],
-      [33, 22, 'peach'],
-      [24, 20, 'lavender'],
+      [4, 8],
+      [12, 18],
+      [22, 10],
+      [32, 22],
+      [42, 14],
     ],
   },
   {
-    d: 'M46 6 L52 13 L59 7 L66 14 L73 6',
+    left: '78%',
+    top: '9%',
+    width: 68,
+    rotate: 10,
+    d: 'M8 6 L18 16 L28 8 L22 24',
     stars: [
-      [46, 6, 'violet'],
-      [52, 13, 'ice'],
-      [59, 7, 'moon'],
-      [66, 14, 'aurora'],
-      [73, 6, 'gold'],
+      [8, 6],
+      [18, 16],
+      [28, 8],
+      [22, 24],
     ],
   },
   {
-    d: 'M82 11 L90 8 L96 16 L89 22 L94 30 L84 26',
+    left: '88%',
+    top: '36%',
+    width: 52,
+    rotate: -14,
+    d: 'M8 6 L24 10 L12 24 Z',
     stars: [
-      [82, 11, 'jade'],
-      [90, 8, 'gold'],
-      [96, 16, 'sea'],
-      [89, 22, 'blush'],
-      [94, 30, 'ice'],
-      [84, 26, 'amber'],
+      [8, 6],
+      [24, 10],
+      [12, 24],
     ],
   },
   {
-    d: 'M5 34 L12 40 L9 49 L18 54 L14 62',
+    left: '4%',
+    top: '40%',
+    width: 60,
+    rotate: 6,
+    d: 'M14 4 L24 14 L14 26 L4 14 Z M14 26 L14 34',
     stars: [
-      [5, 34, 'lavender'],
-      [12, 40, 'sakura'],
-      [9, 49, 'ember'],
-      [18, 54, 'peach'],
-      [14, 62, 'gold'],
+      [14, 4],
+      [24, 14],
+      [14, 26],
+      [4, 14],
+      [14, 34],
     ],
   },
   {
-    d: 'M70 38 L80 34 L88 42 L80 50 L70 46 L70 38',
+    left: '72%',
+    top: '74%',
+    width: 78,
+    rotate: -6,
+    d: 'M4 18 L14 8 L24 6 L34 10 L44 20',
     stars: [
-      [70, 38, 'aurora'],
-      [80, 34, 'ice'],
-      [88, 42, 'jade'],
-      [80, 50, 'mist'],
-      [70, 46, 'sea'],
+      [4, 18],
+      [14, 8],
+      [24, 6],
+      [34, 10],
+      [44, 20],
     ],
   },
   {
-    d: 'M24 68 L32 64 L41 70 L49 65 L56 72',
+    left: '7%',
+    top: '76%',
+    width: 50,
+    rotate: 18,
+    d: 'M12 4 L12 28 M4 16 L22 16',
     stars: [
-      [24, 68, 'moon'],
-      [32, 64, 'gold'],
-      [41, 70, 'sakura'],
-      [49, 65, 'violet'],
-      [56, 72, 'amber'],
+      [12, 4],
+      [12, 16],
+      [12, 28],
+      [4, 16],
+      [22, 16],
     ],
   },
   {
-    d: 'M78 64 L86 60 L93 68 L87 76 L78 72 L78 64',
+    left: '46%',
+    top: '5%',
+    width: 48,
+    rotate: 4,
+    d: 'M6 6 L6 22 L16 28 L24 22',
     stars: [
-      [78, 64, 'blush'],
-      [86, 60, 'peach'],
-      [93, 68, 'ember'],
-      [87, 76, 'gold'],
-      [78, 72, 'lavender'],
-    ],
-  },
-  {
-    d: 'M42 28 L48 34 L44 42 L54 40',
-    stars: [
-      [42, 28, 'ice'],
-      [48, 34, 'moon'],
-      [44, 42, 'jade'],
-      [54, 40, 'aurora'],
+      [6, 6],
+      [6, 22],
+      [16, 28],
+      [24, 22],
     ],
   },
 ] as const;
@@ -133,6 +145,26 @@ export function Sky({ reduced = false }: { reduced?: boolean }) {
     <div className="sky" aria-hidden="true">
       <div className="sky-wash" />
       <div className="sky-veil" />
+      <div className="sky-constellations">
+        {CONSTELLATIONS.map((item) => (
+          <svg
+            key={item.d}
+            className="sky-constellation"
+            viewBox="0 0 48 36"
+            style={{
+              left: item.left,
+              top: item.top,
+              width: item.width,
+              transform: `rotate(${item.rotate}deg)`,
+            }}
+          >
+            <path d={item.d} className="sky-line" />
+            {item.stars.map(([x, y]) => (
+              <circle key={`${item.d}-${x}-${y}`} cx={x} cy={y} r={0.55} />
+            ))}
+          </svg>
+        ))}
+      </div>
       <div className="starfield">
         {STARS.map((dot, i) => (
           <span
@@ -165,22 +197,6 @@ export function Sky({ reduced = false }: { reduced?: boolean }) {
           />
         ))}
       </div>
-      <svg className="sky-constellations" viewBox="0 0 100 80" preserveAspectRatio="none">
-        {CONSTELLATIONS.map((item) => (
-          <g key={item.d}>
-            <path d={item.d} className="sky-line" />
-            {item.stars.map(([x, y, color]) => (
-              <circle
-                key={`${item.d}-${x}-${y}`}
-                cx={x}
-                cy={y}
-                r={color === 'gold' || color === 'moon' ? 0.85 : 0.62}
-                fill={PALETTE[color]}
-              />
-            ))}
-          </g>
-        ))}
-      </svg>
       {shoot && !reduced ? (
         <span
           key={shoot.id}

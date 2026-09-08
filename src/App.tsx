@@ -6,7 +6,6 @@ import {
   Plus,
   LockKeyhole,
   Heart,
-  Trash2,
   ArrowLeft,
   Download,
   Upload,
@@ -22,6 +21,7 @@ import {
   defaultPreferences,
   graphemes,
   recall,
+  starRadius,
   type Star,
   type Preferences,
   type Backup,
@@ -31,7 +31,7 @@ import {
 import { dictionaries, locale, type T } from './lib/i18n';
 import { parseBackup, download } from './lib/backup';
 import { loadingQuote } from './lib/quotes';
-import { openingRemark } from './lib/remarks';
+import { memoryTitle, openingRemark } from './lib/remarks';
 import { detectInstall, windowInstallEnv } from './lib/install';
 import {
   unlockAudio,
@@ -39,6 +39,7 @@ import {
   play,
   requestMotion,
   setSoundVolume,
+  setAmbientMuted,
   ShakeDetector,
 } from './lib/sensory';
 import { fadeUp, listItem, listStagger, toastFx, bootMark } from './lib/fx';
@@ -49,7 +50,9 @@ import { Header, type View } from './components/Header';
 import { Sky } from './components/Sky';
 import { BrandMark } from './components/BrandMark';
 import { Press } from './components/Press';
-import { KisekiGlyph } from './components/KisekiGlyph';
+import { Reveal } from './components/Reveal';
+import { FOLD_STAR_PAD, REVEAL_STAR_SIZE, STAR_FIGURE_PAD, StarFigure } from './components/StarFigure';
+import type { StarOrigin } from './lib/physics';
 const Wrapped = lazy(() => import('./components/Wrapped'));
 type Overlay = 'add' | 'settings' | 'reveal' | 'delete' | null;
 function readDraft() {
@@ -95,11 +98,20 @@ export default function App() {
     [draft, setDraft] = useState(readDraft),
     [intro, setIntro] = useState(true),
     [dust, setDust] = useState(false);
-  const [rising, setRising] = useState<{ star: Star; x: number; y: number } | null>(null);
+  const [dropping, setDropping] = useState<{
+    star: Star;
+    x: number;
+    y: number;
+    size: number;
+    land: number;
+    to: { x: number; y: number };
+  } | null>(null);
   const [liftedId, setLiftedId] = useState<string | null>(null);
+  const [liftOrigin, setLiftOrigin] = useState<StarOrigin | null>(null);
+  const [revealLeaving, setRevealLeaving] = useState(false);
   const [remark, setRemark] = useState('');
+  const [heading, setHeading] = useState('');
   const stageRef = useRef<HTMLDivElement>(null);
-  const recallTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [recalling, setRecalling] = useState(false);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -117,19 +129,14 @@ export default function App() {
   }, [prefs.language, prefs.reducedMotion]);
   useEffect(() => {
     setSoundVolume(prefs.soundVolume);
-  }, [prefs.soundVolume]);
+    setAmbientMuted(Boolean(prefs.ambientMuted));
+  }, [prefs.soundVolume, prefs.ambientMuted]);
   useEffect(() => {
     if (!notice) return;
     play('toast');
     const timer = setTimeout(() => setNotice(''), 5500);
     return () => clearTimeout(timer);
   }, [notice]);
-  useEffect(
-    () => () => {
-      if (recallTimer.current) clearTimeout(recallTimer.current);
-    },
-    [],
-  );
   useEffect(() => {
     if (!loaded || !data) return;
     if (prefs.reducedMotion) {
@@ -151,8 +158,15 @@ export default function App() {
       setNotice(t.errorAction);
     }
   };
+  const present = (star: Star) => {
+    setSelected(star);
+    setRemark(openingRemark(prefs.language));
+    setHeading(memoryTitle(prefs.language));
+    setLiftOrigin(null);
+    setRevealLeaving(false);
+  };
   const recallAction = () => {
-    if (recalling) return;
+    if (recalling || liftedId) return;
     unlockAudio();
     const pool = (stars ?? []).filter(
       (s) => (filter === 'all' || s.jarId === filter) && (!favorites || s.isFavorite),
@@ -162,18 +176,15 @@ export default function App() {
       setNotice(t.emptyRecall);
       return;
     }
-    setRecalling(true);
-    setSelected(star);
-    setRemark(openingRemark(prefs.language));
-    setShake((s) => s + 1);
+    present(star);
+    play('lift');
     chime(COLORS.indexOf(star.colorId), prefs.soundVolume);
-    recallTimer.current = setTimeout(
-      () => {
-        setOverlay('reveal');
-        setRecalling(false);
-      },
-      prefs.reducedMotion ? 0 : 550,
-    );
+    if (view === 'jar' && star.jarId === active?.id && !prefs.reducedMotion) {
+      setRecalling(true);
+      setLiftedId(star.id);
+      return;
+    }
+    setOverlay('reveal');
   };
   const recallRef = useRef(recallAction);
   useEffect(() => {
@@ -251,6 +262,11 @@ export default function App() {
         <Header
           view={view}
           t={t}
+          ambientMuted={Boolean(prefs.ambientMuted)}
+          onAmbientMute={(next) => {
+            unlockAudio();
+            void updatePrefs({ ambientMuted: next });
+          }}
           onView={(next) => {
             setView(next);
             setLimit(30);
@@ -264,68 +280,36 @@ export default function App() {
               <p>{t.subtitle}</p>
             </header>
             <div className="jar-stage" ref={stageRef}>
-              {recalling && selected && !prefs.reducedMotion ? (
-                <motion.span
-                  className="recall-ghost"
-                  aria-hidden="true"
-                  style={{ color: PALETTE[selected.colorId] }}
-                  initial={{ y: 180, scale: 0.4, opacity: 0, filter: 'blur(8px)' }}
-                  animate={{ y: -70, scale: 2.05, opacity: [0, 1, 0.8], filter: 'blur(0px)' }}
-                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  ✦
-                </motion.span>
-              ) : null}
               <JarCanvas
                 stars={currentStars}
                 jarId={active.id}
                 reduced={prefs.reducedMotion}
-                paused={view !== 'jar' || overlay !== null || !!rising}
+                paused={view !== 'jar' || (overlay !== null && overlay !== 'reveal') || !!dropping}
+                hiddenId={
+                  liftedId && (overlay === 'reveal' || overlay === 'delete') ? liftedId : null
+                }
                 shake={shake}
                 freshId={freshId}
                 volume={prefs.soundVolume}
                 label={`${t.jar} · ${currentStars.length} ${t.count}`}
-                hiddenId={liftedId}
-                onPick={(star, origin) => {
+                liftId={prefs.reducedMotion ? null : liftedId}
+                onPick={(star) => {
                   unlockAudio();
                   play('lift');
                   chime(COLORS.indexOf(star.colorId), prefs.soundVolume);
-                  setSelected(star);
-                  setRemark(openingRemark(prefs.language));
+                  present(star);
                   if (prefs.reducedMotion) {
                     setOverlay('reveal');
                     return;
                   }
-                  const box = stageRef.current?.getBoundingClientRect();
                   setLiftedId(star.id);
-                  setRising({
-                    star,
-                    x: origin.x - (box?.left ?? 0),
-                    y: origin.y - (box?.top ?? 0),
-                  });
+                }}
+                onApex={(origin) => {
+                  setLiftOrigin(origin);
+                  setRecalling(false);
+                  setOverlay('reveal');
                 }}
               />
-              {rising ? (
-                <motion.div
-                  className="kiseki-ascend"
-                  style={{ left: rising.x, top: rising.y }}
-                  initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1, filter: 'brightness(1)' }}
-                  animate={{
-                    x: '-50%',
-                    y: -240,
-                    scale: 2.55,
-                    opacity: [1, 1, 0.2],
-                    filter: 'brightness(1.85)',
-                  }}
-                  transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-                  onAnimationComplete={() => {
-                    setOverlay('reveal');
-                    setRising(null);
-                  }}
-                >
-                  <KisekiGlyph color={rising.star.colorId} category={rising.star.category} size={52} lit />
-                </motion.div>
-              ) : null}
               {dust ? (
                 <div className="fold-dust" aria-hidden="true">
                   {COLORS.map((color, i) => (
@@ -437,8 +421,7 @@ export default function App() {
                         <button
                           className="memory-open"
                           onClick={() => {
-                            setSelected(star);
-                            setRemark(openingRemark(prefs.language));
+                            present(star);
                             setOverlay('reveal');
                           }}
                         >
@@ -564,6 +547,52 @@ export default function App() {
             </motion.aside>
           ) : null}
         </AnimatePresence>
+        <AnimatePresence>
+          {dropping ? (
+            <motion.div
+              key={dropping.star.id}
+              className="kiseki-drop"
+              style={{
+                left: dropping.x,
+                top: dropping.y,
+                width: dropping.size,
+                height: dropping.size,
+                color: PALETTE[dropping.star.colorId],
+              }}
+              initial={{
+                x: '-50%',
+                y: '-50%',
+                scale: 1,
+                rotate: 12,
+                opacity: 1,
+                filter: 'brightness(1.75)',
+              }}
+              animate={{
+                x: '-50%',
+                y: '-50%',
+                left: dropping.to.x,
+                top: dropping.to.y,
+                scale: [1, 1.14, Math.max(0.18, dropping.land / (dropping.size / FOLD_STAR_PAD))],
+                rotate: [12, 28, 6],
+                opacity: [1, 1, 0.28],
+                filter: ['brightness(1.75)', 'brightness(2.15)', 'brightness(1.2)'],
+              }}
+              transition={{ duration: 0.64, times: [0, 0.6, 1], ease: [0.22, 1, 0.36, 1] }}
+              onAnimationComplete={() => {
+                setFreshId(dropping.star.id);
+                setDust(true);
+                setDropping(null);
+              }}
+            >
+              <StarFigure
+                star={dropping.star}
+                size={Math.max(8, Math.round(dropping.size / FOLD_STAR_PAD))}
+                pad={FOLD_STAR_PAD}
+                lit
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         {overlay === 'add' ? (
           <AddWin
             t={t}
@@ -574,14 +603,31 @@ export default function App() {
             }}
             full={currentStars.length >= CAPACITY}
             onClose={() => setOverlay(null)}
-            onSaved={(star) => {
-              setFreshId(star.id);
-              setView('jar');
-              setOverlay(null);
+            onSaved={(star, origin) => {
               setDraft('');
               saveDraft('');
-              setDust(true);
+              setView('jar');
               setNotice(t.saved);
+              if (prefs.reducedMotion || !origin) {
+                setFreshId(star.id);
+                setOverlay(null);
+                setDust(true);
+                return;
+              }
+              const scene = stageRef.current?.querySelector('.jar-scene');
+              const jar = scene?.getBoundingClientRect();
+              const radius = starRadius(star);
+              setDropping({
+                star,
+                x: origin.x,
+                y: origin.y,
+                size: origin.size,
+                land: jar ? radius * 2 * (jar.width / 400) : radius * 2,
+                to: jar
+                  ? { x: jar.left + jar.width * 0.5, y: jar.top + jar.height * (40 / 420) }
+                  : { x: origin.x, y: origin.y + 120 },
+              });
+              setOverlay(null);
             }}
             reduced={prefs.reducedMotion}
           />
@@ -599,51 +645,51 @@ export default function App() {
         ) : null}
         {overlay === 'reveal' && selected ? (
           <Modal
-            title={t.memoryTitle}
+            title={heading || t.memoryTitle}
             closeLabel={t.close}
+            onClosing={() => setRevealLeaving(true)}
             onClose={() => {
               setOverlay(null);
-              setLiftedId(null);
+              setRevealLeaving(false);
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  setLiftedId(null);
+                  setLiftOrigin(null);
+                });
+              });
             }}
             feedback={notice}
             reduced={prefs.reducedMotion}
             tone="reveal"
+            accent={PALETTE[selected.colorId]}
+            anchor={prefs.reducedMotion ? null : liftOrigin}
+            hero={
+              <StarFigure
+                star={selected}
+                size={REVEAL_STAR_SIZE}
+                pad={STAR_FIGURE_PAD}
+                lit
+              />
+            }
           >
-            <motion.div
-              className="reveal"
-              initial={prefs.reducedMotion ? false : { opacity: 0, scale: 0.86, y: 24 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <KisekiGlyph color={selected.colorId} category={selected.category} size={88} lit />
-              <p className="reveal-reminder">{remark || t.remember}</p>
-              <blockquote>{selected.text}</blockquote>
-              <p className="muted">
-                {new Date(selected.createdAt).toLocaleDateString(locale(prefs.language), {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </p>
-              <p className="category-tag">
-                <Icon name={selected.category} />
-                {t[selected.category]}
-              </p>
-              <div className="reveal-actions">
-                <Press
-                  className="button secondary"
-                  aria-pressed={selected.isFavorite}
-                  onClick={() => void favorite(selected)}
-                >
-                  <Heart size={18} fill={selected.isFavorite ? 'currentColor' : 'none'} />
-                  {selected.isFavorite ? t.unfavorite : t.favorite}
-                </Press>
-                <Press className="text-button danger" onClick={() => setOverlay('delete')}>
-                  <Trash2 size={17} />
-                  {t.delete}
-                </Press>
-              </div>
-            </motion.div>
+            <Reveal
+              star={selected}
+              title={heading || t.memoryTitle}
+              remark={remark || t.remember}
+              date={new Date(selected.createdAt).toLocaleDateString(locale(prefs.language), {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+              category={t[selected.category]}
+              favoriteLabel={t.favorite}
+              unfavoriteLabel={t.unfavorite}
+              deleteLabel={t.delete}
+              reduced={prefs.reducedMotion}
+              leaving={revealLeaving}
+              onFavorite={() => void favorite(selected)}
+              onDelete={() => setOverlay('delete')}
+            />
           </Modal>
         ) : null}
         {overlay === 'delete' && selected ? (
@@ -668,6 +714,7 @@ export default function App() {
                       setOverlay(null);
                       setSelected(null);
                       setLiftedId(null);
+                      setLiftOrigin(null);
                       setNotice(t.deleteDone);
                     })
                     .catch(() => setNotice(t.errorAction));
@@ -726,15 +773,17 @@ function AddWin({
   setDraft: (v: string) => void;
   full: boolean;
   onClose: () => void;
-  onSaved: (s: Star) => void;
+  onSaved: (s: Star, origin?: { x: number; y: number; size: number }) => void;
   reduced: boolean;
 }) {
   const [category, setCategory] = useState<Category>('effort'),
     [color, setColor] = useState<Color>('gold'),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [confirmArchive, setConfirmArchive] = useState(false);
+    [confirmArchive, setConfirmArchive] = useState(false),
+    [folding, setFolding] = useState(false);
   const submitting = useRef(false);
+  const saved = useRef<Star | null>(null);
   const count = graphemes(draft).length;
   const submit = async (event?: FormEvent, archive = false) => {
     event?.preventDefault();
@@ -754,14 +803,19 @@ function AddWin({
     play('fold');
     try {
       const star = await addStar({ text: draft, category, colorId: color }, archive);
-      if (!reduced) await new Promise((resolve) => setTimeout(resolve, 450));
-      onSaved(star);
+      if (reduced) {
+        onSaved(star);
+        return;
+      }
+      saved.current = star;
+      setFolding(true);
     } catch (e) {
       if (e instanceof Error && e.message === 'JAR_FULL') setConfirmArchive(true);
       else setError(t.storageError);
+      setBusy(false);
     } finally {
       submitting.current = false;
-      setBusy(false);
+      if (reduced) setBusy(false);
     }
   };
   return (
@@ -769,8 +823,15 @@ function AddWin({
       title={confirmArchive ? t.fullTitle : t.addTitle}
       closeLabel={t.close}
       onClose={onClose}
-      busy={busy}
+      busy={busy || folding}
       reduced={reduced}
+      folding={folding}
+      foldColor={saved.current?.colorId ?? color}
+      foldCategory={saved.current?.category ?? category}
+      foldText={saved.current?.text ?? draft}
+      onFolded={(origin) => {
+        if (saved.current) onSaved(saved.current, origin);
+      }}
     >
       {confirmArchive ? (
         <>
@@ -798,11 +859,7 @@ function AddWin({
         <form onSubmit={(e) => void submit(e)}>
           <p className="modal-intro">{t.addIntro}</p>
           <motion.div
-            animate={
-              busy && !reduced
-                ? { scale: 0.88, rotateX: 38, rotateY: -8, opacity: 0.45 }
-                : { scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }
-            }
+            animate={busy && !folding && !reduced ? { scale: 0.88, rotateX: 38, rotateY: -8, opacity: 0.45 } : { scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformPerspective: 700 }}
           >
@@ -955,6 +1012,20 @@ function SettingsPanel({
           }}
           onPointerUp={() => chime(0, prefs.soundVolume)}
         />
+        <label className="toggle-row">
+          <span>
+            {t.ambientMute}
+            <small>{t.ambientHelp}</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={Boolean(prefs.ambientMuted)}
+            onChange={(e) => {
+              unlockAudio();
+              void update({ ambientMuted: e.target.checked });
+            }}
+          />
+        </label>
         <label className="toggle-row">
           <span>
             {t.reduceMotion}

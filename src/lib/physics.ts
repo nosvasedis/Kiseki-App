@@ -1,5 +1,5 @@
 import Matter from 'matter-js';
-import { CATEGORY_TRAITS, PALETTE, type Category, type KisekiVisual, type Star } from './models';
+import { CATEGORY_TRAITS, PALETTE, starRadius, type Category, type KisekiVisual, type Star } from './models';
 export const JAR_PATH =
   'M118 76 L118 108 Q88 122 88 150 L88 336 Q88 369 120 369 L280 369 Q312 369 312 336 L312 150 Q312 122 282 108 L282 76';
 export const WALL_POINTS = [
@@ -28,7 +28,14 @@ export function boundaries() {
       (p[1] + a[1]) / 2,
       Math.hypot(dx, dy) + 6,
       10,
-      { isStatic: true, angle: Math.atan2(dy, dx), friction: 0.2, restitution: 0.15 },
+      {
+        isStatic: true,
+        angle: Math.atan2(dy, dx),
+        friction: 0.28,
+        frictionStatic: 0.38,
+        restitution: 0.26,
+        slop: 0.04,
+      },
     );
   });
 }
@@ -187,40 +194,111 @@ export function drawStar(
   angle = 0,
   category?: Category,
   lit = false,
+  loved = false,
+  beat = 0,
 ) {
   const traits = traitsOf(category);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  ctx.shadowColor = color;
-  ctx.shadowBlur = lit ? r * 2.4 : r * (traits.visual === 'spark' ? 1.25 : 0.95);
+  const [cr, cg, cb] = hexRgb(color);
+  const glowR = lit ? r * 2.85 : loved ? r * (2.15 + beat * 0.45) : r * (traits.visual === 'spark' ? 1.55 : 1.35);
+  const glowA = lit ? 0.5 : loved ? 0.3 + beat * 0.12 : 0.18;
+  const halo = ctx.createRadialGradient(0, 0, r * 0.12, 0, 0, glowR);
+  halo.addColorStop(0, `rgba(${cr},${cg},${cb},${glowA})`);
+  halo.addColorStop(0.4, `rgba(${cr},${cg},${cb},${glowA * 0.4})`);
+  halo.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = loved ? mix(color, '#fff8ec', 0.4) : color;
+  ctx.shadowBlur = lit ? r * 0.35 : loved ? r * (0.7 + beat * 0.25) : r * 0.32;
+  if (loved) {
+    ctx.globalAlpha = 0.22 + beat * 0.12;
+    ctx.fillStyle = mix(color, '#fff8ec', 0.42);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = mix(color, '#fff8ec', 0.7);
+    ctx.lineWidth = 0.85;
+    ctx.globalAlpha = 0.38 + beat * 0.22;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.55 + beat * 0.2;
+    ctx.strokeStyle = mix('#fff8ec', color, 0.25);
+    ctx.lineWidth = 0.7;
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2 + beat * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.2, Math.sin(a) * r * 0.2);
+      ctx.lineTo(Math.cos(a) * r * 1.62, Math.sin(a) * r * 1.62);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
   const stretch = traits.visual === 'flame' ? 1.18 : traits.visual === 'moon' ? 0.9 : 1;
   const inner =
     traits.visual === 'spark' ? 0.44 : traits.visual === 'bloom' ? 0.6 : traits.visual === 'heart' ? 0.57 : 0.52;
   const points = starPoints(r, inner, stretch, traits.tips);
-  fillFaceted(ctx, points, r, color);
-  ctx.globalAlpha = 0.42;
-  ctx.fillStyle = mix(color, '#fff8ec', 0.6);
+  fillFaceted(ctx, points, r, loved ? mix(color, '#fff8ec', 0.22) : color);
+  ctx.globalAlpha = loved ? 0.78 : 0.42;
+  ctx.fillStyle = mix(color, '#fff8ec', loved ? 0.86 : 0.6);
   ctx.beginPath();
-  ctx.arc(0, -r * 0.06, r * 0.12, 0, Math.PI * 2);
+  ctx.arc(0, -r * 0.06, r * (loved ? 0.22 : 0.12), 0, Math.PI * 2);
   ctx.fill();
   engrave(ctx, r, color, traits.visual, angle);
   ctx.restore();
 }
+export const JAR_W = 400;
+export const JAR_H = 420;
+export const JAR_GLOW_PAD = 96;
 export function paintStars(
   ctx: CanvasRenderingContext2D,
   bodies: Matter.Body[],
   stars: Map<string, Star>,
   hidden?: ReadonlySet<string>,
+  litId?: string | null,
+  liftId?: string | null,
+  atApex = false,
 ) {
-  ctx.clearRect(0, 0, 400, 420);
+  ctx.clearRect(0, -JAR_GLOW_PAD, JAR_W, JAR_H + JAR_GLOW_PAD);
   for (const b of bodies) {
     if (hidden?.has(b.label)) continue;
     const star = stars.get(b.label);
     if (!star) continue;
-    const radius = CATEGORY_TRAITS[star.category].radius + 1;
-    drawStar(ctx, b.position.x, b.position.y, radius, PALETTE[star.colorId], b.angle, star.category);
+    const lifting = star.id === liftId;
+    const loved = star.isFavorite;
+    const beat = loved ? Math.sin(performance.now() / 380 + b.position.x * 0.02) : 0;
+    const radius = starPaintRadius(star, lifting, atApex);
+    drawStar(
+      ctx,
+      b.position.x,
+      b.position.y,
+      radius,
+      PALETTE[star.colorId],
+      b.angle,
+      star.category,
+      star.id === litId || lifting,
+      loved,
+      beat,
+    );
   }
+}
+export function starPaintRadius(star: Pick<Star, 'text' | 'category' | 'isFavorite'>, lifting = false, atApex = false) {
+  return (starRadius(star) + 1) * (lifting ? (atApex ? 1.38 : 1.16) : star.isFavorite ? 1.06 : 1);
+}
+export type StarOrigin = { x: number; y: number; size: number; angle: number };
+export function pointInJar(x: number, y: number) {
+  let inside = false;
+  for (let i = 0, j = WALL_POINTS.length - 1; i < WALL_POINTS.length; j = i++) {
+    const [xi, yi] = WALL_POINTS[i];
+    const [xj, yj] = WALL_POINTS[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + Number.MIN_VALUE) + xi)
+      inside = !inside;
+  }
+  return inside;
 }
 export function hitTest(
   bodies: Matter.Body[],
@@ -233,7 +311,7 @@ export function hitTest(
     const star = stars.get(b.label);
     if (!star) continue;
     const d = Math.hypot(b.position.x - x, b.position.y - y);
-    const reach = CATEGORY_TRAITS[star.category].radius + 10;
+    const reach = starRadius(star) + 8;
     if (d <= reach && (!best || d < best.d)) best = { star, d };
   }
   return best?.star ?? null;
@@ -241,25 +319,37 @@ export function hitTest(
 export class JarWorld {
   engine = Matter.Engine.create({
     enableSleeping: true,
-    positionIterations: 6,
-    velocityIterations: 4,
+    positionIterations: 8,
+    velocityIterations: 6,
+    constraintIterations: 2,
   });
   bodies = new Map<string, Matter.Body>();
   kinds = new Map<string, Category>();
+  radii = new Map<string, number>();
+  lifting: string | null = null;
+  apex = false;
   steps = 0;
+  walls: Matter.Body[] = [];
+  wallRest: { x: number; y: number }[] = [];
+  jostleLeft = 0;
+  shaking = false;
   constructor() {
-    this.engine.gravity.y = 0.6;
-    Matter.Composite.add(this.engine.world, boundaries());
+    this.engine.gravity.y = 0.72;
+    this.engine.gravity.scale = 0.001;
+    this.walls = boundaries();
+    this.wallRest = this.walls.map((w) => ({ x: w.position.x, y: w.position.y }));
+    Matter.Composite.add(this.engine.world, this.walls);
   }
-  add(id: string, seated = false, category: Category = 'effort') {
+  add(id: string, seated = false, category: Category = 'effort', text = '') {
     if (this.bodies.has(id) || this.bodies.size >= 45) return;
     const i = this.bodies.size;
     const trait = CATEGORY_TRAITS[category];
+    const radius = text ? starRadius({ text, category }) : trait.radius;
     const b = Matter.Bodies.polygon(
       seated ? 113 + (i % 7) * 29 : 200 + (Math.random() - 0.5) * 30,
       seated ? 347 - Math.floor(i / 7) * 27 : 45,
       trait.sides,
-      trait.radius,
+      radius,
       {
         label: id,
         density: trait.density,
@@ -267,12 +357,14 @@ export class JarWorld {
         frictionStatic: trait.frictionStatic,
         frictionAir: trait.frictionAir,
         restitution: trait.restitution,
-        chamfer: { radius: 2 },
+        chamfer: { radius: Math.max(0.55, Math.min(2, radius * 0.14)) },
         sleepThreshold: 60,
+        slop: 0.045,
       },
     );
     this.bodies.set(id, b);
     this.kinds.set(id, category);
+    this.radii.set(id, radius);
     Matter.Composite.add(this.engine.world, b);
     if (seated) Matter.Sleeping.set(b, true);
     else {
@@ -288,6 +380,47 @@ export class JarWorld {
     if (b) Matter.Composite.remove(this.engine.world, b);
     this.bodies.delete(id);
     this.kinds.delete(id);
+    this.radii.delete(id);
+  }
+  resize(id: string, radius: number) {
+    const b = this.bodies.get(id);
+    const have = this.radii.get(id);
+    if (!b || have == null || Math.abs(have - radius) < 0.45) return;
+    Matter.Sleeping.set(b, false);
+    Matter.Body.scale(b, radius / have, radius / have);
+    this.radii.set(id, radius);
+  }
+  jostle(originX = 200, originY = 240) {
+    this.jostleLeft = 36;
+    this.shaking = true;
+    const bump = originX < 200 ? 2.7 : -2.7;
+    for (const [id, b] of this.bodies) {
+      if (id === this.lifting) continue;
+      const dx = b.position.x - originX;
+      const dy = b.position.y - originY;
+      const d = Math.max(20, Math.hypot(dx, dy));
+      const power = Math.min(2.35, 108 / d);
+      Matter.Sleeping.set(b, false);
+      Matter.Body.setVelocity(b, {
+        x: b.velocity.x + bump * (0.8 + Math.random() * 0.45) + (dx / d) * power,
+        y: b.velocity.y + (dy / d) * power * 0.3 + (Math.random() - 0.5) * 0.55,
+      });
+      Matter.Body.setAngularVelocity(b, b.angularVelocity + (Math.random() - 0.5) * 0.28);
+    }
+  }
+  private shakeWorld() {
+    if (this.jostleLeft <= 0) {
+      if (this.shaking) {
+        this.engine.gravity.x = 0;
+        this.shaking = false;
+      }
+      return;
+    }
+    const total = 36;
+    const i = total - this.jostleLeft;
+    this.jostleLeft -= 1;
+    const decay = this.jostleLeft / total;
+    this.engine.gravity.x = Math.sin(i * 0.88) * 0.34 * decay;
   }
   shake() {
     for (const [id, b] of this.bodies) {
@@ -300,10 +433,72 @@ export class JarWorld {
       Matter.Body.setAngularVelocity(b, (Math.random() - 0.5) * trait.spin * 8);
     }
   }
+  lift(id: string) {
+    const b = this.bodies.get(id);
+    if (!b) return false;
+    this.lifting = id;
+    this.apex = false;
+    Matter.Sleeping.set(b, false);
+    for (const other of this.bodies.values()) {
+      if (other === b) continue;
+      const dx = other.position.x - b.position.x;
+      const dy = other.position.y - b.position.y;
+      const d = Math.hypot(dx, dy);
+      if (d <= 0 || d > 52) continue;
+      Matter.Sleeping.set(other, false);
+      Matter.Body.setVelocity(other, {
+        x: other.velocity.x + (dx / d) * 2.1,
+        y: other.velocity.y + (dy / d) * 1.4 - 0.35,
+      });
+    }
+    Matter.Body.setVelocity(b, { x: (200 - b.position.x) * 0.06, y: -2.8 });
+    Matter.Body.setAngularVelocity(b, 0.1);
+    return true;
+  }
+  release() {
+    const id = this.lifting;
+    this.lifting = null;
+    this.apex = false;
+    const b = id ? this.bodies.get(id) : null;
+    if (!b) return;
+    b.isSensor = false;
+    Matter.Sleeping.set(b, false);
+    if (b.position.y < 96) Matter.Body.setPosition(b, { x: 200 + (Math.random() - 0.5) * 18, y: 50 });
+    Matter.Body.setVelocity(b, { x: (Math.random() - 0.5) * 1.5, y: 2.4 });
+    Matter.Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.16);
+  }
+  stir() {
+    const list = [...this.bodies.values()].filter((b) => b.label !== this.lifting);
+    if (!list.length) return;
+    const n = Math.min(3, list.length);
+    for (let i = 0; i < n; i++) {
+      const b = list[(i * 7 + this.steps) % list.length];
+      Matter.Sleeping.set(b, false);
+      Matter.Body.setVelocity(b, {
+        x: b.velocity.x + (Math.random() - 0.5) * 0.32,
+        y: b.velocity.y - 0.06 - Math.random() * 0.1,
+      });
+      Matter.Body.setAngularVelocity(b, b.angularVelocity + (Math.random() - 0.5) * 0.018);
+    }
+  }
   step() {
+    this.shakeWorld();
     Matter.Engine.update(this.engine, 1000 / 60);
     this.steps++;
+    const lift = this.lifting ? this.bodies.get(this.lifting) : null;
+    if (lift) {
+      Matter.Sleeping.set(lift, false);
+      const ease = lift.position.y > 110 ? 0.05 : 0.11;
+      const x = lift.position.x + (200 - lift.position.x) * ease;
+      const y = lift.position.y + (40 - lift.position.y) * ease;
+      if (lift.position.y < 100) lift.isSensor = true;
+      Matter.Body.setPosition(lift, { x, y });
+      Matter.Body.setVelocity(lift, { x: 0, y: 0 });
+      Matter.Body.setAngularVelocity(lift, lift.angularVelocity * 0.96 + 0.005);
+      if (Math.hypot(x - 200, y - 40) < 7) this.apex = true;
+    }
     for (const b of this.bodies.values()) {
+      if (b.label === this.lifting) continue;
       if (b.position.y > 400 || b.position.x < 60 || b.position.x > 340) {
         Matter.Body.setPosition(b, { x: 200, y: 145 });
         Matter.Body.setVelocity(b, { x: 0, y: 0 });
@@ -319,5 +514,11 @@ export class JarWorld {
     Matter.Engine.clear(this.engine);
     this.bodies.clear();
     this.kinds.clear();
+    this.radii.clear();
+    this.lifting = null;
+    this.apex = false;
+    this.jostleLeft = 0;
+    this.walls = [];
+    this.wallRest = [];
   }
 }

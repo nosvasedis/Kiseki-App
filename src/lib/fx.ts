@@ -42,16 +42,24 @@ export const modalInner: Variants = {
   },
 };
 
+export const revealInner: Variants = {
+  hidden: { opacity: 0, transition: { duration: 0.32, ease: fairytale } },
+  show: {
+    opacity: 1,
+    transition: { duration: 0.42, ease: fairytale, delay: 0.14 },
+  },
+};
+
 export const toastFx: Variants = {
-  hidden: { opacity: 0, y: 16, x: '-50%', scale: 0.96 },
+  hidden: { opacity: 0, y: 18, scale: 0.94, filter: 'blur(6px)' },
   show: {
     opacity: 1,
     y: 0,
-    x: '-50%',
     scale: 1,
+    filter: 'blur(0px)',
     transition: { duration: duration.toast, ease: fairytale },
   },
-  exit: { opacity: 0, y: 8, x: '-50%', transition: { duration: 0.2 } },
+  exit: { opacity: 0, y: 10, scale: 0.98, transition: { duration: 0.22 } },
 };
 
 export const bootMark: Variants = {
