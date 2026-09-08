@@ -1,0 +1,26 @@
+:root {
+  --kiseki-night-950: #070F23;
+  --kiseki-night-900: #0D1833;
+  --kiseki-night-800: #162747;
+  --kiseki-moon: #F7F1DF;
+  --kiseki-moon-muted: #C8C8D1;
+  --kiseki-gold: #E7B866;
+  --kiseki-gold-soft: #F7DDA5;
+  --kiseki-ice: #BFD7FF;
+  --kiseki-lavender: #C7B5EF;
+  --kiseki-sakura: #D79AA8;
+  --kiseki-jade: #86C9A8;
+  --kiseki-peach: #E9A07A;
+  --kiseki-aurora: #6DC8C0;
+  --kiseki-amber: #D4A04A;
+  --kiseki-ember: #C97A5A;
+  --kiseki-blush: #E4B0BE;
+  --kiseki-violet: #9B8AD4;
+  --kiseki-mist: #A9B8C9;
+  --kiseki-sea: #6A9BB8;
+  --kiseki-glass: rgba(247, 241, 223, 0.12);
+  --kiseki-glass-border: rgba(247, 241, 223, 0.28);
+  --kiseki-shadow: rgba(0, 0, 0, 0.28);
+  --kiseki-font-display: "EB Garamond", "Shippori Mincho", serif;
+  --kiseki-font-ui: "Alegreya Sans", "Zen Kaku Gothic New", sans-serif;
+}
