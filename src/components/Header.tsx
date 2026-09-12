@@ -1,4 +1,4 @@
-import { LayoutGroup, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { Settings, Volume2, VolumeX } from 'lucide-react';
 import { COLORS, PALETTE } from '../lib/models';
 import { play } from '../lib/sensory';
@@ -50,30 +50,21 @@ export function Header({
           <BrandMark size={48} />
           <span className="wordmark-text">Kiseki</span>
         </a>
-        <LayoutGroup>
-          <nav aria-label="Kiseki">
-            {(['jar', 'memories', 'wrapped'] as View[]).map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-current={view === item ? 'page' : undefined}
-                onClick={() => {
-                  if (view !== item) play('page');
-                  onView(item);
-                }}
-              >
-                {view === item ? (
-                  <motion.span
-                    className="nav-indicator"
-                    layoutId="nav-indicator"
-                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                  />
-                ) : null}
-                {t[item]}
-              </button>
-            ))}
-          </nav>
-        </LayoutGroup>
+        <nav aria-label="Kiseki">
+          {(['jar', 'memories', 'wrapped'] as View[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-current={view === item ? 'page' : undefined}
+              onClick={() => {
+                if (view !== item) play('page');
+                onView(item);
+              }}
+            >
+              {t[item]}
+            </button>
+          ))}
+        </nav>
         <div className="header-actions">
           <motion.button
             type="button"

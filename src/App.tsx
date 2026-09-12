@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
@@ -45,8 +45,8 @@ import {
   StarFigure,
 } from './components/StarFigure';
 import { AddKiseki } from './components/AddKiseki';
+import Wrapped from './components/Wrapped';
 import type { StarOrigin } from './lib/physics';
-const Wrapped = lazy(() => import('./components/Wrapped'));
 type Overlay = 'add' | 'settings' | 'reveal' | 'delete' | null;
 function readDraft() {
   try {
@@ -473,9 +473,7 @@ export default function App() {
                     animate="show"
                     exit="exit"
                   >
-                    <Suspense fallback={<p className="load-screen">{t.preparing}</p>}>
-                      <Wrapped stars={data.stars} language={prefs.language} t={t} />
-                    </Suspense>
+                    <Wrapped stars={data.stars} language={prefs.language} t={t} />
                   </motion.div>
                 ) : null}
               </AnimatePresence>

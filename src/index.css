@@ -190,6 +190,8 @@ input[type='file'].sr-only {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   position: relative;
   z-index: 1;
@@ -387,7 +389,8 @@ input[type='file'].sr-only {
 .app-header nav button[aria-current] {
   color: #f7f1df;
 }
-.nav-indicator {
+.app-header nav button[aria-current]::after {
+  content: '';
   position: absolute;
   left: 8px;
   right: 8px;
@@ -1502,15 +1505,6 @@ input[type='file'].sr-only {
     0 16px 40px #0005;
   transform-origin: 50% 80%;
 }
-.add-sheet-creases {
-  position: absolute;
-  inset: 10%;
-  pointer-events: none;
-  opacity: 0.16;
-  background:
-    linear-gradient(135deg, transparent 49%, #fff8ec66 50%, transparent 51%),
-    linear-gradient(45deg, transparent 49%, #fff8ec44 50%, transparent 51%);
-}
 .add-sheet-text,
 .add-sheet-meta,
 .add-sheet .star-figure,
@@ -2371,7 +2365,7 @@ input[type='file'].sr-only {
     padding: 0 14px;
     font-size: 12px;
   }
-  .nav-indicator {
+  .app-header nav button[aria-current]::after {
     bottom: 6px;
   }
   .jar-page {

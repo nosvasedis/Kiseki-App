@@ -255,7 +255,6 @@ export function AddKiseki({
                     }
                     transition={{ duration: 0.45, ease: fairytale }}
                   >
-                    <span className="add-sheet-creases" aria-hidden="true" />
                     <p className="add-sheet-text">{draft.trim()}</p>
                     <StarFigure
                       star={{ colorId: color, category, isFavorite: false }}
