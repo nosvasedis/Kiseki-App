@@ -1,5 +1,13 @@
 import Matter from 'matter-js';
-import { CATEGORY_TRAITS, PALETTE, starRadius, type Category, type KisekiVisual, type Star } from './models';
+import {
+  CAPACITY,
+  CATEGORY_TRAITS,
+  PALETTE,
+  starRadius,
+  type Category,
+  type KisekiVisual,
+  type Star,
+} from './models';
 export const JAR_PATH =
   'M118 76 L118 108 Q88 122 88 150 L88 336 Q88 369 120 369 L280 369 Q312 369 312 336 L312 150 Q312 122 282 108 L282 76';
 export const WALL_POINTS = [
@@ -341,13 +349,13 @@ export class JarWorld {
     Matter.Composite.add(this.engine.world, this.walls);
   }
   add(id: string, seated = false, category: Category = 'effort', text = '') {
-    if (this.bodies.has(id) || this.bodies.size >= 45) return;
+    if (this.bodies.has(id) || this.bodies.size >= CAPACITY) return;
     const i = this.bodies.size;
     const trait = CATEGORY_TRAITS[category];
-    const radius = text ? starRadius({ text, category }) : trait.radius;
+    const radius = starRadius({ text, category });
     const b = Matter.Bodies.polygon(
-      seated ? 113 + (i % 7) * 29 : 200 + (Math.random() - 0.5) * 30,
-      seated ? 347 - Math.floor(i / 7) * 27 : 45,
+      seated ? 108 + (i % 6) * 37 : 200 + (Math.random() - 0.5) * 30,
+      seated ? 350 - Math.floor(i / 6) * 38 : 45,
       trait.sides,
       radius,
       {

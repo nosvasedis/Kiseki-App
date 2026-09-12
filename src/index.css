@@ -1775,13 +1775,6 @@ input[type='file'].sr-only {
 .wrapped-heading {
   margin-bottom: 22px;
 }
-.wrapped-heading .wrapped-kicker {
-  margin: 0 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.34em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
 .wrapped-heading p {
   max-width: 34em;
   margin-left: auto;

@@ -172,9 +172,9 @@ test('first win, persistence, favorites, recall, draft and deletion', async ({ p
   await ready(page);
   await page.screenshot({ path: join(evidence, 'desktop.png'), fullPage: true });
   await add(page, 'I took a small, quiet break.');
-  await expect(page.locator('.jar-count')).toContainText('1 / 45');
+  await expect(page.locator('.jar-count')).toContainText('1 / 35');
   await page.reload();
-  await expect(page.locator('.jar-count')).toContainText('1 / 45');
+  await expect(page.locator('.jar-count')).toContainText('1 / 35');
   await dismissBanner(page);
   await page.getByRole('button', { name: 'Memories', exact: true }).click();
   await page.getByRole('button', { name: 'Keep as a favorite', exact: true }).click();
@@ -304,7 +304,7 @@ test('full jar rotates on confirmation and never deletes prior stars', async ({ 
     });
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction('stars', 'readwrite');
-      for (let i = 0; i < 45; i++)
+      for (let i = 0; i < 35; i++)
         tx.objectStore('stars').add({
           id: crypto.randomUUID(),
           jarId: jars[0].id,
@@ -320,17 +320,20 @@ test('full jar rotates on confirmation and never deletes prior stars', async ({ 
     db.close();
   });
   await page.reload();
-  await expect(page.locator('.jar-count')).toContainText('45 / 45');
+  await expect(page.locator('.boot-screen')).toHaveCount(0, { timeout: 8000 });
+  await expect(page.locator('.jar-count')).toContainText('35 / 35');
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: join(evidence, 'jar-full.png') });
   await page.getByRole('button', { name: 'Add a Kiseki', exact: true }).click();
   await page.getByRole('textbox').fill('The next chapter');
   await continueAdd(page);
   await page.getByRole('button', { name: 'Fold a Kiseki', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Your 45 stars are safe');
-  expect((await readDb(page)).stars).toHaveLength(45);
+  await expect(page.getByRole('dialog')).toContainText('Your 35 Kisekis are safe');
+  expect((await readDb(page)).stars).toHaveLength(35);
   await page.getByRole('button', { name: 'Keep this jar & start another' }).click();
-  await expect(page.locator('.jar-count')).toContainText('1 / 45');
+  await expect(page.locator('.jar-count')).toContainText('1 / 35');
   const data = await readDb(page);
-  expect(data.stars).toHaveLength(46);
+  expect(data.stars).toHaveLength(36);
   expect(data.jars).toHaveLength(2);
 });
 test('offline cold boot, lazy Wrapped and Japanese fonts after first install', async ({
@@ -346,7 +349,7 @@ test('offline cold boot, lazy Wrapped and Japanese fonts after first install', a
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   await context.setOffline(true);
   await page.reload();
-  await expect(page.locator('.jar-count')).toContainText('1 / 45');
+  await expect(page.locator('.jar-count')).toContainText('1 / 35');
   await dismissBanner(page);
   await settings(page);
   await page.getByLabel('Language', { exact: true }).selectOption('ja');

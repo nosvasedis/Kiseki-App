@@ -213,7 +213,7 @@ export interface Backup {
   stars: Star[];
   preferences: Preferences;
 }
-export const CAPACITY = 45;
+export const CAPACITY = 35;
 export const graphemes = (text: string) =>
   Array.from(
     new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
@@ -235,8 +235,8 @@ export function starScale(text: string) {
 }
 export function starRadius(star: Pick<Star, 'text' | 'category'>) {
   const base = CATEGORY_TRAITS[star.category].radius;
-  const size = base * (0.5 + starScale(star.text) * 0.88);
-  return Math.min(20.6, Math.max(7.1, size));
+  const size = base * (1.38 + starScale(star.text) * 0.7);
+  return Math.min(26.5, Math.max(16.8, size));
 }
 export function defaultPreferences(): Preferences {
   const language = typeof navigator !== 'undefined' ? navigator.language.slice(0, 2) : 'en';

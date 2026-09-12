@@ -80,7 +80,6 @@ export default function Wrapped({
   return (
     <section className="page wrapped-page">
       <header className="page-heading wrapped-heading">
-        <p className="wrapped-kicker">{t.wrapped}</p>
         <h1>{t.wrappedTitle}</h1>
         <p>{t.wrappedIntro}</p>
       </header>

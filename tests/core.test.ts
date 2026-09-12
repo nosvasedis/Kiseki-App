@@ -74,27 +74,27 @@ describe('local storage and capacity', () => {
     await expect(addStar({ ...input, text: '  ' }, false, db)).rejects.toThrow();
   });
   it('never exceeds capacity under concurrent submissions and archives atomically', async () => {
-    for (let i = 0; i < 44; i++) await addStar(input, false, db);
+    for (let i = 0; i < 34; i++) await addStar(input, false, db);
     const outcomes = await Promise.allSettled([
       addStar(input, false, db),
       addStar(input, false, db),
     ]);
     expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(await db.stars.count()).toBe(45);
+    expect(await db.stars.count()).toBe(35);
     const old = (await db.jars.toArray())[0];
     const added = await addStar(input, true, db);
     expect(added.jarId).not.toBe(old.id);
-    expect(await db.stars.count()).toBe(46);
+    expect(await db.stars.count()).toBe(36);
     expect((await db.jars.toArray()).filter((j) => j.archivedAt === null)).toHaveLength(1);
-    expect(await db.stars.where('jarId').equals(old.id).count()).toBe(45);
+    expect(await db.stars.where('jarId').equals(old.id).count()).toBe(35);
   });
   it('rolls back jar rotation if the star insert fails', async () => {
-    for (let i = 0; i < 45; i++) await addStar(input, false, db);
+    for (let i = 0; i < 35; i++) await addStar(input, false, db);
     vi.spyOn(db.stars, 'add').mockRejectedValueOnce(new Error('disk full'));
     await expect(addStar(input, true, db)).rejects.toThrow('disk full');
     expect(await db.jars.count()).toBe(1);
     expect((await db.jars.toArray())[0].archivedAt).toBeNull();
-    expect(await db.stars.count()).toBe(45);
+    expect(await db.stars.count()).toBe(35);
   });
 });
 describe('backup validation and merge', () => {
@@ -247,10 +247,17 @@ describe('kiseki spectrum and character', () => {
     expect(couple).toBeLessThan(sentence);
     expect(sentence).toBeLessThan(letter);
     expect(letter).toBeLessThanOrEqual(fullest);
-    expect(tiny).toBeLessThan(9.2);
-    expect(fullest).toBeGreaterThan(16);
+    expect(tiny).toBeLessThan(21);
+    expect(fullest).toBeGreaterThan(22);
+    expect(fullest).toBeLessThanOrEqual(26.5);
     expect(starRadius({ text: 'ok', category: 'milestone' })).toBeGreaterThan(tiny);
     expect(starMass('小さな休')).toBeLessThan(starMass('今日は小さな勇気を持てた、それで十分だった。'));
+    const typical = starRadius({
+      text: 'I sat with the tea until it cooled.',
+      category: 'effort',
+    });
+    expect(typical).toBeGreaterThan(21);
+    expect(35 * Math.PI * typical * typical).toBeGreaterThan(48000);
   });
   it('picks a seated kiseki under a tap and ignores empty space', () => {
     const star = sample(1, { id: 'a', category: 'joy', colorId: 'aurora' });
@@ -391,14 +398,14 @@ describe('install detection and loading quotes', () => {
   });
 });
 describe('physics and sensor safeguards', () => {
-  it('contains 45 sequential stars through repeated shakes and releases the world', () => {
+  it('contains 35 sequential stars through repeated shakes and releases the world', () => {
     const w = new JarWorld();
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 35; i++) {
       w.add(String(i));
       for (let s = 0; s < 6; s++) w.step();
     }
-    w.add('46');
-    expect(w.bodies.size).toBe(45);
+    w.add('36');
+    expect(w.bodies.size).toBe(35);
     for (let s = 0; s < 900; s++) w.step();
     for (let shake = 0; shake < 3; shake++) {
       w.shake();
