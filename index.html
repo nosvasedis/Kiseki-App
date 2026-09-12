@@ -1,1 +1,65 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><meta name="theme-color" content="#070f23"/><meta name="mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/><meta name="apple-mobile-web-app-title" content="Kiseki"/><meta name="description" content="A quiet, private space for your Kisekis — little miracles, kept. One origami star at a time."/><link rel="icon" type="image/svg+xml" href="/assets/kiseki/brand/kiseki-logo.svg"/><link rel="icon" type="image/png" href="/assets/kiseki/runtime/icon-192.png"/><link rel="apple-touch-icon" href="/assets/kiseki/runtime/apple-touch-icon.png"/><title>Kiseki · Little miracles every day</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#070f23" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kiseki" />
+    <meta
+      name="description"
+      content="A quiet, private space for your Kisekis — little miracles, kept. One origami star at a time."
+    />
+    <link rel="icon" type="image/svg+xml" href="/assets/kiseki/brand/kiseki-logo.svg" />
+    <link rel="icon" type="image/png" href="/assets/kiseki/runtime/icon-192.png" />
+    <link rel="apple-touch-icon" href="/assets/kiseki/runtime/apple-touch-icon.png" />
+    <title>Kiseki · Little miracles every day</title>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: #070f23;
+        color: #f7f1df;
+      }
+      .boot-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: radial-gradient(ellipse at 50% 42%, #1b2d52, #070f23 68%);
+        text-align: center;
+      }
+      .boot-screen .wordmark-text {
+        margin: 0;
+        font:
+          36px/1.1 Georgia,
+          'Times New Roman',
+          serif;
+        letter-spacing: 0.08em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot-screen" aria-busy="true">
+        <img
+          class="brand-logo boot-logo"
+          src="/assets/kiseki/brand/kiseki-logo.svg"
+          width="96"
+          height="96"
+          alt=""
+        />
+        <p class="wordmark-text">Kiseki</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

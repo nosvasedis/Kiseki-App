@@ -1,32 +1,19 @@
-import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
-import {
-  Plus,
-  LockKeyhole,
-  Heart,
-  ArrowLeft,
-  Download,
-  Upload,
-  Sparkles,
-  X,
-} from 'lucide-react';
-import { db, initialize, addStar, exportBackup, mergeBackup } from './lib/db';
+import { Plus, LockKeyhole, Heart, Download, Upload, Sparkles, X } from 'lucide-react';
+import { db, initialize, exportBackup, mergeBackup } from './lib/db';
 import {
   CAPACITY,
-  CATEGORIES,
   COLORS,
   PALETTE,
   defaultPreferences,
-  graphemes,
   recall,
   starRadius,
   type Star,
   type Preferences,
   type Backup,
-  type Category,
-  type Color,
 } from './lib/models';
 import { dictionaries, locale, type T } from './lib/i18n';
 import { parseBackup, download } from './lib/backup';
@@ -42,16 +29,22 @@ import {
   setAmbientMuted,
   ShakeDetector,
 } from './lib/sensory';
-import { fadeUp, listItem, listStagger, toastFx, bootMark } from './lib/fx';
+import { fadeUp, listItem, listStagger, toastFx, duration, fairytale } from './lib/fx';
+import { BootScreen } from './components/Boot';
 import { JarCanvas } from './components/JarCanvas';
 import { Modal } from './components/Modal';
 import { Icon } from './components/Icon';
 import { Header, type View } from './components/Header';
 import { Sky } from './components/Sky';
-import { BrandMark } from './components/BrandMark';
 import { Press } from './components/Press';
 import { Reveal } from './components/Reveal';
-import { FOLD_STAR_PAD, REVEAL_STAR_SIZE, STAR_FIGURE_PAD, StarFigure } from './components/StarFigure';
+import {
+  FOLD_STAR_PAD,
+  REVEAL_STAR_SIZE,
+  STAR_FIGURE_PAD,
+  StarFigure,
+} from './components/StarFigure';
+import { AddKiseki } from './components/AddKiseki';
 import type { StarOrigin } from './lib/physics';
 const Wrapped = lazy(() => import('./components/Wrapped'));
 type Overlay = 'add' | 'settings' | 'reveal' | 'delete' | null;
@@ -98,6 +91,7 @@ export default function App() {
     [draft, setDraft] = useState(readDraft),
     [intro, setIntro] = useState(true),
     [dust, setDust] = useState(false);
+  const [bootAt] = useState(() => Date.now());
   const [dropping, setDropping] = useState<{
     star: Star;
     x: number;
@@ -143,7 +137,7 @@ export default function App() {
       setIntro(false);
       return;
     }
-    const timer = setTimeout(() => setIntro(false), 1200);
+    const timer = setTimeout(() => setIntro(false), 1600);
     return () => clearTimeout(timer);
   }, [loaded, data, prefs.reducedMotion]);
   useEffect(() => {
@@ -232,526 +226,523 @@ export default function App() {
     const jar = jars?.find((j) => j.id === jarId);
     return `${jar?.archivedAt === null ? t.activeJar : t.archivedJar} · ${new Date(jar?.createdAt ?? Date.now()).toLocaleDateString(locale(prefs.language), { day: 'numeric', month: 'short' })}`;
   };
+  const reveal = Boolean(loaded && data && active && !loadError);
+  const showBoot = !loadError && (!reveal || (intro && !prefs.reducedMotion));
   if (loadError)
     return (
-      <main className="load-screen">
-        <Sky reduced />
-        <BrandMark size={72} />
-        <p className="wordmark-text">Kiseki</p>
-        <p className="loading-quote">{loadingQuote(prefs.language)}</p>
-        <p role="alert">{t.loadError}</p>
-        <Press className="button primary" onClick={() => location.reload()}>
-          {t.retry}
-        </Press>
-      </main>
-    );
-  if (!loaded || !data || !active)
-    return (
-      <main className="load-screen">
-        <Sky reduced />
-        <BrandMark className="boot-logo" size={72} />
-        <p className="wordmark-text">Kiseki</p>
-        <p className="loading-quote">{loadingQuote(prefs.language)}</p>
-        <p>{t.loading}</p>
-      </main>
+      <div className="boot-screen">
+        <BootScreen
+          quote={loadingQuote(prefs.language, bootAt)}
+          error={t.loadError}
+          retry={t.retry}
+        />
+      </div>
     );
   return (
     <MotionConfig reducedMotion={prefs.reducedMotion ? 'always' : 'user'}>
-      <div className="app-shell">
-        <Sky reduced={prefs.reducedMotion} />
-        <Header
-          view={view}
-          t={t}
-          ambientMuted={Boolean(prefs.ambientMuted)}
-          onAmbientMute={(next) => {
-            unlockAudio();
-            void updatePrefs({ ambientMuted: next });
-          }}
-          onView={(next) => {
-            setView(next);
-            setLimit(30);
-          }}
-          onSettings={() => setOverlay('settings')}
-        />
-        <main id="main-content" className="app-scroll">
-          <section className={`jar-page ${view === 'jar' ? 'is-active' : 'is-idle'}`}>
-            <header className="hero-heading">
-              <h1>{t.headline}</h1>
-              <p>{t.subtitle}</p>
-            </header>
-            <div className="jar-stage" ref={stageRef}>
-              <JarCanvas
-                stars={currentStars}
-                jarId={active.id}
-                reduced={prefs.reducedMotion}
-                paused={view !== 'jar' || (overlay !== null && overlay !== 'reveal') || !!dropping}
-                hiddenId={
-                  liftedId && (overlay === 'reveal' || overlay === 'delete') ? liftedId : null
-                }
-                shake={shake}
-                freshId={freshId}
-                volume={prefs.soundVolume}
-                label={`${t.jar} · ${currentStars.length} ${t.count}`}
-                liftId={prefs.reducedMotion ? null : liftedId}
-                onPick={(star) => {
-                  unlockAudio();
-                  play('lift');
-                  chime(COLORS.indexOf(star.colorId), prefs.soundVolume);
-                  present(star);
-                  if (prefs.reducedMotion) {
-                    setOverlay('reveal');
-                    return;
-                  }
-                  setLiftedId(star.id);
-                }}
-                onApex={(origin) => {
-                  setLiftOrigin(origin);
-                  setRecalling(false);
-                  setOverlay('reveal');
-                }}
-              />
-              {dust ? (
-                <div className="fold-dust" aria-hidden="true">
-                  {COLORS.map((color, i) => (
-                    <span
-                      key={color}
-                      style={{
-                        color: PALETTE[color],
-                        ['--dust-x' as string]: `${(i - 6.5) * 12}px`,
-                        animationDelay: `${i * 28}ms`,
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="ritual-actions">
-              <p className="jar-caption">{currentStars.length ? t.kept : t.first}</p>
-              {currentStars.length > 0 ? (
-                <p className="jar-count">
-                  {currentStars.length} / {CAPACITY} · {t.count}
-                </p>
-              ) : null}
-              <Press
-                className="button primary add-button"
-                onClick={() => {
-                  unlockAudio();
-                  setOverlay('add');
-                }}
-              >
-                <Plus size={21} />
-                {t.add}
-              </Press>
-              <Press className="button secondary" onClick={recallAction} disabled={recalling}>
-                <Icon name="shake-jar" />
-                {t.recall}
-              </Press>
-            </div>
-            <p className="privacy-line">
-              <LockKeyhole size={14} />
-              {t.private}
-            </p>
-          </section>
-          <AnimatePresence mode="wait">
-            {view === 'memories' ? (
-              <motion.section
-                className="page memories-page"
-                key="memories"
-                variants={fadeUp}
-                initial={prefs.reducedMotion ? false : 'hidden'}
-                animate="show"
-                exit="exit"
-              >
-                <header className="page-heading">
-                  <h1>{t.memories}</h1>
-                  <p>{t.localOnly}</p>
+      <div className={`app-shell${showBoot ? ' is-booting' : ''}`} aria-busy={showBoot}>
+        <Sky reduced={!reveal || prefs.reducedMotion} />
+        {data && active ? (
+          <div className="app-reveal" inert={showBoot || undefined}>
+            <Header
+              view={view}
+              t={t}
+              ambientMuted={Boolean(prefs.ambientMuted)}
+              onAmbientMute={(next) => {
+                unlockAudio();
+                void updatePrefs({ ambientMuted: next });
+              }}
+              onView={(next) => {
+                setView(next);
+                setLimit(30);
+              }}
+              onSettings={() => setOverlay('settings')}
+            />
+            <main id="main-content" className="app-scroll">
+              <section className={`jar-page ${view === 'jar' ? 'is-active' : 'is-idle'}`}>
+                <header className="hero-heading">
+                  <h1>{t.headline}</h1>
+                  <p>{t.subtitle}</p>
                 </header>
-                <div className="memory-toolbar">
-                  <label>
-                    <span className="sr-only">{t.selectJar}</span>
-                    <select
-                      value={filter}
-                      onChange={(e) => {
-                        setFilter(e.target.value);
-                        setLimit(30);
-                      }}
-                    >
-                      <option value="all">{t.allJars}</option>
-                      {jars?.map((j) => (
-                        <option key={j.id} value={j.id}>
-                          {jarName(j.id)}
-                        </option>
+                <div className="jar-stage" ref={stageRef}>
+                  <JarCanvas
+                    stars={currentStars}
+                    jarId={active.id}
+                    reduced={prefs.reducedMotion}
+                    paused={
+                      view !== 'jar' || (overlay !== null && overlay !== 'reveal') || !!dropping
+                    }
+                    hiddenId={
+                      liftedId && (overlay === 'reveal' || overlay === 'delete') ? liftedId : null
+                    }
+                    shake={shake}
+                    freshId={freshId}
+                    volume={prefs.soundVolume}
+                    label={`${t.jar} · ${currentStars.length} ${t.count}`}
+                    liftId={prefs.reducedMotion ? null : liftedId}
+                    onPick={(star) => {
+                      unlockAudio();
+                      play('lift');
+                      chime(COLORS.indexOf(star.colorId), prefs.soundVolume);
+                      present(star);
+                      if (prefs.reducedMotion) {
+                        setOverlay('reveal');
+                        return;
+                      }
+                      setLiftedId(star.id);
+                    }}
+                    onApex={(origin) => {
+                      setLiftOrigin(origin);
+                      setRecalling(false);
+                      setOverlay('reveal');
+                    }}
+                  />
+                  {dust ? (
+                    <div className="fold-dust" aria-hidden="true">
+                      {COLORS.map((color, i) => (
+                        <span
+                          key={color}
+                          style={{
+                            color: PALETTE[color],
+                            ['--dust-x' as string]: `${(i - 6.5) * 12}px`,
+                            animationDelay: `${i * 28}ms`,
+                          }}
+                        />
                       ))}
-                    </select>
-                  </label>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="ritual-actions">
+                  <p className="jar-caption">{currentStars.length ? t.kept : t.first}</p>
+                  {currentStars.length > 0 ? (
+                    <p className="jar-count">
+                      {currentStars.length} / {CAPACITY} · {t.count}
+                    </p>
+                  ) : null}
                   <Press
-                    className={`filter-button ${favorites ? 'selected' : ''}`}
-                    aria-pressed={favorites}
+                    className="button primary add-button"
                     onClick={() => {
-                      setFavorites((s) => !s);
-                      setLimit(30);
+                      unlockAudio();
+                      setOverlay('add');
                     }}
                   >
-                    <Heart size={17} fill={favorites ? 'currentColor' : 'none'} />
-                    {t.favorites}
+                    <Plus size={21} />
+                    {t.add}
                   </Press>
-                  <Press
-                    className="button secondary compact"
-                    onClick={recallAction}
-                    disabled={recalling}
-                  >
-                    <Sparkles size={17} />
+                  <Press className="button secondary" onClick={recallAction} disabled={recalling}>
+                    <Icon name="shake-jar" />
                     {t.recall}
                   </Press>
                 </div>
-                {filtered.length ? (
-                  <motion.div
-                    className="memory-list"
-                    variants={listStagger}
+                <p className="privacy-line">
+                  <LockKeyhole size={14} />
+                  {t.private}
+                </p>
+              </section>
+              <AnimatePresence mode="wait">
+                {view === 'memories' ? (
+                  <motion.section
+                    className="page memories-page"
+                    key="memories"
+                    variants={fadeUp}
                     initial={prefs.reducedMotion ? false : 'hidden'}
                     animate="show"
+                    exit="exit"
                   >
-                    {filtered.slice(0, limit).map((star) => (
-                      <motion.article
-                        className="memory-row"
-                        key={star.id}
-                        variants={listItem}
-                        style={{ ['--star' as string]: PALETTE[star.colorId] }}
-                      >
-                        <button
-                          className="memory-open"
-                          onClick={() => {
-                            present(star);
-                            setOverlay('reveal');
+                    <header className="page-heading">
+                      <h1>{t.memories}</h1>
+                      <p>{t.localOnly}</p>
+                    </header>
+                    <div className="memory-toolbar">
+                      <label>
+                        <span className="sr-only">{t.selectJar}</span>
+                        <select
+                          value={filter}
+                          onChange={(e) => {
+                            setFilter(e.target.value);
+                            setLimit(30);
                           }}
                         >
-                          <span className="memory-symbol" style={{ color: PALETTE[star.colorId] }}>
-                            <Icon name={star.category} size={25} />
-                          </span>
-                          <div>
-                            <p>{star.text}</p>
-                            <span className="memory-meta">
-                              {new Date(star.createdAt).toLocaleDateString(locale(prefs.language), {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                              })}{' '}
-                              · {t[star.category]}
-                            </span>
-                          </div>
-                        </button>
-                        <Press
-                          className="icon-button favorite-button"
-                          aria-label={star.isFavorite ? t.unfavorite : t.favorite}
-                          aria-pressed={star.isFavorite}
-                          onClick={() => void favorite(star)}
-                        >
-                          <Heart size={19} fill={star.isFavorite ? 'currentColor' : 'none'} />
+                          <option value="all">{t.allJars}</option>
+                          {jars?.map((j) => (
+                            <option key={j.id} value={j.id}>
+                              {jarName(j.id)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <Press
+                        className={`filter-button ${favorites ? 'selected' : ''}`}
+                        aria-pressed={favorites}
+                        onClick={() => {
+                          setFavorites((s) => !s);
+                          setLimit(30);
+                        }}
+                      >
+                        <Heart size={17} fill={favorites ? 'currentColor' : 'none'} />
+                        {t.favorites}
+                      </Press>
+                      <Press
+                        className="button secondary compact"
+                        onClick={recallAction}
+                        disabled={recalling}
+                      >
+                        <Sparkles size={17} />
+                        {t.recall}
+                      </Press>
+                    </div>
+                    {filtered.length ? (
+                      <motion.div
+                        className="memory-list"
+                        variants={listStagger}
+                        initial={prefs.reducedMotion ? false : 'hidden'}
+                        animate="show"
+                      >
+                        {filtered.slice(0, limit).map((star) => (
+                          <motion.article
+                            className="memory-row"
+                            key={star.id}
+                            variants={listItem}
+                            style={{ ['--star' as string]: PALETTE[star.colorId] }}
+                          >
+                            <button
+                              className="memory-open"
+                              onClick={() => {
+                                present(star);
+                                setOverlay('reveal');
+                              }}
+                            >
+                              <span
+                                className="memory-symbol"
+                                style={{ color: PALETTE[star.colorId] }}
+                              >
+                                <Icon name={star.category} size={25} />
+                              </span>
+                              <div>
+                                <p>{star.text}</p>
+                                <span className="memory-meta">
+                                  {new Date(star.createdAt).toLocaleDateString(
+                                    locale(prefs.language),
+                                    {
+                                      day: 'numeric',
+                                      month: 'long',
+                                      year: 'numeric',
+                                    },
+                                  )}{' '}
+                                  · {t[star.category]}
+                                </span>
+                              </div>
+                            </button>
+                            <Press
+                              className="icon-button favorite-button"
+                              aria-label={star.isFavorite ? t.unfavorite : t.favorite}
+                              aria-pressed={star.isFavorite}
+                              onClick={() => void favorite(star)}
+                            >
+                              <Heart size={19} fill={star.isFavorite ? 'currentColor' : 'none'} />
+                            </Press>
+                          </motion.article>
+                        ))}
+                      </motion.div>
+                    ) : (
+                      <div className="empty-state">
+                        <Sparkles size={36} />
+                        <h2>{stars?.length ? t.nothingFiltered : t.noMemories}</h2>
+                        <p>{t.noMemoriesText}</p>
+                        <Press className="button primary" onClick={() => setOverlay('add')}>
+                          <Plus size={18} />
+                          {t.add}
                         </Press>
-                      </motion.article>
-                    ))}
-                  </motion.div>
-                ) : (
-                  <div className="empty-state">
-                    <Sparkles size={36} />
-                    <h2>{stars?.length ? t.nothingFiltered : t.noMemories}</h2>
-                    <p>{t.noMemoriesText}</p>
-                    <Press className="button primary" onClick={() => setOverlay('add')}>
-                      <Plus size={18} />
-                      {t.add}
-                    </Press>
-                  </div>
-                )}
-                {filtered.length > limit ? (
-                  <Press
-                    className="button secondary load-more"
-                    onClick={() => setLimit((n) => n + 30)}
-                  >
-                    {t.more}
-                  </Press>
+                      </div>
+                    )}
+                    {filtered.length > limit ? (
+                      <Press
+                        className="button secondary load-more"
+                        onClick={() => setLimit((n) => n + 30)}
+                      >
+                        {t.more}
+                      </Press>
+                    ) : null}
+                  </motion.section>
                 ) : null}
-              </motion.section>
-            ) : null}
-            {view === 'wrapped' ? (
-              <motion.div
-                key="wrapped"
-                variants={fadeUp}
-                initial={prefs.reducedMotion ? false : 'hidden'}
-                animate="show"
-                exit="exit"
-              >
-                <Suspense fallback={<p className="load-screen">{t.preparing}</p>}>
-                  <Wrapped stars={data.stars} language={prefs.language} t={t} />
-                </Suspense>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </main>
-        {view !== 'jar' ? (
-          <footer className="page-footer">
-            <LockKeyhole size={14} />
-            {t.private}
-          </footer>
-        ) : null}
-        <AnimatePresence>
-          {notice ? (
-            <motion.div
-              className="toast"
-              role="status"
-              key={notice}
-              variants={toastFx}
-              initial="hidden"
-              animate="show"
-              exit="exit"
-            >
-              {notice}
-              <Press className="icon-button" aria-label={t.dismiss} onClick={() => setNotice('')}>
-                <X size={16} />
-              </Press>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-        <AnimatePresence>
-          {needRefresh || offlineReady ? (
-            <motion.aside
-              className="update-banner"
-              role="status"
-              variants={toastFx}
-              initial="hidden"
-              animate="show"
-              exit="exit"
-            >
-              <p>{needRefresh ? t.update : t.offlineReady}</p>
-              {needRefresh ? (
-                <>
-                  <span className="small">{t.updateHelp}</span>
-                  <Press
-                    className="button secondary compact"
-                    disabled={!!draft.trim() || overlay !== null}
-                    onClick={() => void updateServiceWorker(true)}
+                {view === 'wrapped' ? (
+                  <motion.div
+                    key="wrapped"
+                    variants={fadeUp}
+                    initial={prefs.reducedMotion ? false : 'hidden'}
+                    animate="show"
+                    exit="exit"
                   >
-                    {t.updateAction}
+                    <Suspense fallback={<p className="load-screen">{t.preparing}</p>}>
+                      <Wrapped stars={data.stars} language={prefs.language} t={t} />
+                    </Suspense>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </main>
+            {view !== 'jar' ? (
+              <footer className="page-footer">
+                <LockKeyhole size={14} />
+                {t.private}
+              </footer>
+            ) : null}
+            <AnimatePresence>
+              {notice ? (
+                <motion.div
+                  className="toast"
+                  role="status"
+                  key={notice}
+                  variants={toastFx}
+                  initial="hidden"
+                  animate="show"
+                  exit="exit"
+                >
+                  {notice}
+                  <Press
+                    className="icon-button"
+                    aria-label={t.dismiss}
+                    onClick={() => setNotice('')}
+                  >
+                    <X size={16} />
                   </Press>
-                </>
+                </motion.div>
               ) : null}
-              <Press
-                className="icon-button"
-                aria-label={t.dismiss}
-                onClick={() => {
-                  setNeedRefresh(false);
-                  setOfflineReady(false);
+            </AnimatePresence>
+            <AnimatePresence>
+              {needRefresh || offlineReady ? (
+                <motion.aside
+                  className="update-banner"
+                  role="status"
+                  variants={toastFx}
+                  initial="hidden"
+                  animate="show"
+                  exit="exit"
+                >
+                  <p>{needRefresh ? t.update : t.offlineReady}</p>
+                  {needRefresh ? (
+                    <>
+                      <span className="small">{t.updateHelp}</span>
+                      <Press
+                        className="button secondary compact"
+                        disabled={!!draft.trim() || overlay !== null}
+                        onClick={() => void updateServiceWorker(true)}
+                      >
+                        {t.updateAction}
+                      </Press>
+                    </>
+                  ) : null}
+                  <Press
+                    className="icon-button"
+                    aria-label={t.dismiss}
+                    onClick={() => {
+                      setNeedRefresh(false);
+                      setOfflineReady(false);
+                    }}
+                  >
+                    <X size={17} />
+                  </Press>
+                </motion.aside>
+              ) : null}
+            </AnimatePresence>
+            <AnimatePresence>
+              {dropping ? (
+                <motion.div
+                  key={dropping.star.id}
+                  className="kiseki-drop"
+                  style={{
+                    left: dropping.x,
+                    top: dropping.y,
+                    width: dropping.size,
+                    height: dropping.size,
+                    color: PALETTE[dropping.star.colorId],
+                  }}
+                  initial={{
+                    x: '-50%',
+                    y: '-50%',
+                    scale: 1,
+                    rotate: 12,
+                    opacity: 1,
+                    filter: 'brightness(1.75)',
+                  }}
+                  animate={{
+                    x: '-50%',
+                    y: '-50%',
+                    left: dropping.to.x,
+                    top: dropping.to.y,
+                    scale: [
+                      1,
+                      1.14,
+                      Math.max(0.18, dropping.land / (dropping.size / FOLD_STAR_PAD)),
+                    ],
+                    rotate: [12, 28, 6],
+                    opacity: [1, 1, 0.28],
+                    filter: ['brightness(1.75)', 'brightness(2.15)', 'brightness(1.2)'],
+                  }}
+                  transition={{ duration: 0.64, times: [0, 0.6, 1], ease: [0.22, 1, 0.36, 1] }}
+                  onAnimationComplete={() => {
+                    setFreshId(dropping.star.id);
+                    setDust(true);
+                    setDropping(null);
+                  }}
+                >
+                  <StarFigure
+                    star={dropping.star}
+                    size={Math.max(8, Math.round(dropping.size / FOLD_STAR_PAD))}
+                    pad={FOLD_STAR_PAD}
+                    lit
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+            {overlay === 'add' ? (
+              <AddKiseki
+                t={t}
+                draft={draft}
+                setDraft={(value) => {
+                  setDraft(value);
+                  saveDraft(value);
                 }}
+                full={currentStars.length >= CAPACITY}
+                onClose={() => setOverlay(null)}
+                onSaved={(star, origin) => {
+                  setDraft('');
+                  saveDraft('');
+                  setView('jar');
+                  setNotice(t.saved);
+                  if (prefs.reducedMotion || !origin) {
+                    setFreshId(star.id);
+                    setOverlay(null);
+                    setDust(true);
+                    return;
+                  }
+                  const scene = stageRef.current?.querySelector('.jar-scene');
+                  const jar = scene?.getBoundingClientRect();
+                  const radius = starRadius(star);
+                  setDropping({
+                    star,
+                    x: origin.x,
+                    y: origin.y,
+                    size: origin.size,
+                    land: jar ? radius * 2 * (jar.width / 400) : radius * 2,
+                    to: jar
+                      ? { x: jar.left + jar.width * 0.5, y: jar.top + jar.height * (40 / 420) }
+                      : { x: origin.x, y: origin.y + 120 },
+                  });
+                  setOverlay(null);
+                }}
+                reduced={prefs.reducedMotion}
+              />
+            ) : null}
+            {overlay === 'settings' ? (
+              <Modal
+                title={t.settings}
+                closeLabel={t.close}
+                onClose={() => setOverlay(null)}
+                feedback={notice}
+                reduced={prefs.reducedMotion}
               >
-                <X size={17} />
-              </Press>
-            </motion.aside>
-          ) : null}
-        </AnimatePresence>
-        <AnimatePresence>
-          {dropping ? (
-            <motion.div
-              key={dropping.star.id}
-              className="kiseki-drop"
-              style={{
-                left: dropping.x,
-                top: dropping.y,
-                width: dropping.size,
-                height: dropping.size,
-                color: PALETTE[dropping.star.colorId],
-              }}
-              initial={{
-                x: '-50%',
-                y: '-50%',
-                scale: 1,
-                rotate: 12,
-                opacity: 1,
-                filter: 'brightness(1.75)',
-              }}
-              animate={{
-                x: '-50%',
-                y: '-50%',
-                left: dropping.to.x,
-                top: dropping.to.y,
-                scale: [1, 1.14, Math.max(0.18, dropping.land / (dropping.size / FOLD_STAR_PAD))],
-                rotate: [12, 28, 6],
-                opacity: [1, 1, 0.28],
-                filter: ['brightness(1.75)', 'brightness(2.15)', 'brightness(1.2)'],
-              }}
-              transition={{ duration: 0.64, times: [0, 0.6, 1], ease: [0.22, 1, 0.36, 1] }}
-              onAnimationComplete={() => {
-                setFreshId(dropping.star.id);
-                setDust(true);
-                setDropping(null);
-              }}
-            >
-              <StarFigure
-                star={dropping.star}
-                size={Math.max(8, Math.round(dropping.size / FOLD_STAR_PAD))}
-                pad={FOLD_STAR_PAD}
-                lit
-              />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-        {overlay === 'add' ? (
-          <AddWin
-            t={t}
-            draft={draft}
-            setDraft={(value) => {
-              setDraft(value);
-              saveDraft(value);
-            }}
-            full={currentStars.length >= CAPACITY}
-            onClose={() => setOverlay(null)}
-            onSaved={(star, origin) => {
-              setDraft('');
-              saveDraft('');
-              setView('jar');
-              setNotice(t.saved);
-              if (prefs.reducedMotion || !origin) {
-                setFreshId(star.id);
-                setOverlay(null);
-                setDust(true);
-                return;
-              }
-              const scene = stageRef.current?.querySelector('.jar-scene');
-              const jar = scene?.getBoundingClientRect();
-              const radius = starRadius(star);
-              setDropping({
-                star,
-                x: origin.x,
-                y: origin.y,
-                size: origin.size,
-                land: jar ? radius * 2 * (jar.width / 400) : radius * 2,
-                to: jar
-                  ? { x: jar.left + jar.width * 0.5, y: jar.top + jar.height * (40 / 420) }
-                  : { x: origin.x, y: origin.y + 120 },
-              });
-              setOverlay(null);
-            }}
-            reduced={prefs.reducedMotion}
-          />
-        ) : null}
-        {overlay === 'settings' ? (
-          <Modal
-            title={t.settings}
-            closeLabel={t.close}
-            onClose={() => setOverlay(null)}
-            feedback={notice}
-            reduced={prefs.reducedMotion}
-          >
-            <SettingsPanel prefs={prefs} t={t} update={updatePrefs} notify={setNotice} />
-          </Modal>
-        ) : null}
-        {overlay === 'reveal' && selected ? (
-          <Modal
-            title={heading || t.memoryTitle}
-            closeLabel={t.close}
-            onClosing={() => setRevealLeaving(true)}
-            onClose={() => {
-              setOverlay(null);
-              setRevealLeaving(false);
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  setLiftedId(null);
-                  setLiftOrigin(null);
-                });
-              });
-            }}
-            feedback={notice}
-            reduced={prefs.reducedMotion}
-            tone="reveal"
-            accent={PALETTE[selected.colorId]}
-            anchor={prefs.reducedMotion ? null : liftOrigin}
-            hero={
-              <StarFigure
-                star={selected}
-                size={REVEAL_STAR_SIZE}
-                pad={STAR_FIGURE_PAD}
-                lit
-              />
-            }
-          >
-            <Reveal
-              star={selected}
-              title={heading || t.memoryTitle}
-              remark={remark || t.remember}
-              date={new Date(selected.createdAt).toLocaleDateString(locale(prefs.language), {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-              category={t[selected.category]}
-              favoriteLabel={t.favorite}
-              unfavoriteLabel={t.unfavorite}
-              deleteLabel={t.delete}
-              reduced={prefs.reducedMotion}
-              leaving={revealLeaving}
-              onFavorite={() => void favorite(selected)}
-              onDelete={() => setOverlay('delete')}
-            />
-          </Modal>
-        ) : null}
-        {overlay === 'delete' && selected ? (
-          <Modal
-            title={t.deleteTitle}
-            closeLabel={t.close}
-            onClose={() => setOverlay('reveal')}
-            feedback={notice}
-            reduced={prefs.reducedMotion}
-          >
-            <p>{t.deleteText}</p>
-            <div className="dialog-actions">
-              <Press className="button secondary" onClick={() => setOverlay('reveal')}>
-                {t.cancel}
-              </Press>
-              <Press
-                className="button destructive"
-                onClick={() => {
-                  void db.stars
-                    .delete(selected.id)
-                    .then(() => {
-                      setOverlay(null);
-                      setSelected(null);
+                <SettingsPanel prefs={prefs} t={t} update={updatePrefs} notify={setNotice} />
+              </Modal>
+            ) : null}
+            {overlay === 'reveal' && selected ? (
+              <Modal
+                title={heading || t.memoryTitle}
+                closeLabel={t.close}
+                onClosing={() => setRevealLeaving(true)}
+                onClose={() => {
+                  setOverlay(null);
+                  setRevealLeaving(false);
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
                       setLiftedId(null);
                       setLiftOrigin(null);
-                      setNotice(t.deleteDone);
-                    })
-                    .catch(() => setNotice(t.errorAction));
+                    });
+                  });
                 }}
+                feedback={notice}
+                reduced={prefs.reducedMotion}
+                tone="reveal"
+                accent={PALETTE[selected.colorId]}
+                anchor={prefs.reducedMotion ? null : liftOrigin}
+                hero={
+                  <StarFigure star={selected} size={REVEAL_STAR_SIZE} pad={STAR_FIGURE_PAD} lit />
+                }
               >
-                {t.delete}
-              </Press>
-            </div>
-          </Modal>
+                <Reveal
+                  star={selected}
+                  title={heading || t.memoryTitle}
+                  remark={remark || t.remember}
+                  date={new Date(selected.createdAt).toLocaleDateString(locale(prefs.language), {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                  category={t[selected.category]}
+                  favoriteLabel={t.favorite}
+                  unfavoriteLabel={t.unfavorite}
+                  deleteLabel={t.delete}
+                  reduced={prefs.reducedMotion}
+                  leaving={revealLeaving}
+                  onFavorite={() => void favorite(selected)}
+                  onDelete={() => setOverlay('delete')}
+                />
+              </Modal>
+            ) : null}
+            {overlay === 'delete' && selected ? (
+              <Modal
+                title={t.deleteTitle}
+                closeLabel={t.close}
+                onClose={() => setOverlay('reveal')}
+                feedback={notice}
+                reduced={prefs.reducedMotion}
+              >
+                <p>{t.deleteText}</p>
+                <div className="dialog-actions">
+                  <Press className="button secondary" onClick={() => setOverlay('reveal')}>
+                    {t.cancel}
+                  </Press>
+                  <Press
+                    className="button destructive"
+                    onClick={() => {
+                      void db.stars
+                        .delete(selected.id)
+                        .then(() => {
+                          setOverlay(null);
+                          setSelected(null);
+                          setLiftedId(null);
+                          setLiftOrigin(null);
+                          setNotice(t.deleteDone);
+                        })
+                        .catch(() => setNotice(t.errorAction));
+                    }}
+                  >
+                    {t.delete}
+                  </Press>
+                </div>
+              </Modal>
+            ) : null}
+          </div>
         ) : null}
         <AnimatePresence>
-          {intro && !prefs.reducedMotion ? (
+          {showBoot ? (
             <motion.div
               className="boot-screen"
               key="boot"
-              initial={{ opacity: 1 }}
-              exit={{ opacity: 0, transition: { duration: 0.45 } }}
+              role="status"
+              aria-live="polite"
+              aria-busy={!reveal}
+              initial={false}
+              animate={{ opacity: 1, filter: 'blur(0px)' }}
+              exit={{
+                opacity: 0,
+                filter: 'blur(14px)',
+                transition: { duration: duration.boot, ease: fairytale },
+              }}
             >
-              <motion.div variants={bootMark} initial="hidden" animate="show">
-                <BrandMark size={96} />
-              </motion.div>
-              <motion.p
-                className="wordmark-text"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.28, duration: 0.5 }}
-              >
-                Kiseki
-              </motion.p>
-              <motion.p
-                className="loading-quote"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45, duration: 0.55 }}
-              >
-                {loadingQuote(prefs.language)}
-              </motion.p>
+              <BootScreen
+                quote={loadingQuote(prefs.language, bootAt)}
+                status={reveal ? undefined : t.loading}
+              />
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -759,185 +750,7 @@ export default function App() {
     </MotionConfig>
   );
 }
-function AddWin({
-  t,
-  draft,
-  setDraft,
-  full,
-  onClose,
-  onSaved,
-  reduced,
-}: {
-  t: T;
-  draft: string;
-  setDraft: (v: string) => void;
-  full: boolean;
-  onClose: () => void;
-  onSaved: (s: Star, origin?: { x: number; y: number; size: number }) => void;
-  reduced: boolean;
-}) {
-  const [category, setCategory] = useState<Category>('effort'),
-    [color, setColor] = useState<Color>('gold'),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
-    [confirmArchive, setConfirmArchive] = useState(false),
-    [folding, setFolding] = useState(false);
-  const submitting = useRef(false);
-  const saved = useRef<Star | null>(null);
-  const count = graphemes(draft).length;
-  const submit = async (event?: FormEvent, archive = false) => {
-    event?.preventDefault();
-    if (submitting.current) return;
-    if (!draft.trim() || count > 180) {
-      setError(t.invalidText);
-      return;
-    }
-    if (full && !archive) {
-      setConfirmArchive(true);
-      return;
-    }
-    submitting.current = true;
-    setBusy(true);
-    setError('');
-    unlockAudio();
-    play('fold');
-    try {
-      const star = await addStar({ text: draft, category, colorId: color }, archive);
-      if (reduced) {
-        onSaved(star);
-        return;
-      }
-      saved.current = star;
-      setFolding(true);
-    } catch (e) {
-      if (e instanceof Error && e.message === 'JAR_FULL') setConfirmArchive(true);
-      else setError(t.storageError);
-      setBusy(false);
-    } finally {
-      submitting.current = false;
-      if (reduced) setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title={confirmArchive ? t.fullTitle : t.addTitle}
-      closeLabel={t.close}
-      onClose={onClose}
-      busy={busy || folding}
-      reduced={reduced}
-      folding={folding}
-      foldColor={saved.current?.colorId ?? color}
-      foldCategory={saved.current?.category ?? category}
-      foldText={saved.current?.text ?? draft}
-      onFolded={(origin) => {
-        if (saved.current) onSaved(saved.current, origin);
-      }}
-    >
-      {confirmArchive ? (
-        <>
-          <p>{t.fullText}</p>
-          {error ? (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="dialog-actions vertical">
-            <Press
-              className="button primary"
-              disabled={busy}
-              onClick={() => void submit(undefined, true)}
-            >
-              {busy ? t.saving : t.archive}
-            </Press>
-            <Press className="text-button" disabled={busy} onClick={() => setConfirmArchive(false)}>
-              <ArrowLeft size={16} />
-              {t.cancel}
-            </Press>
-          </div>
-        </>
-      ) : (
-        <form onSubmit={(e) => void submit(e)}>
-          <p className="modal-intro">{t.addIntro}</p>
-          <motion.div
-            animate={busy && !folding && !reduced ? { scale: 0.88, rotateX: 38, rotateY: -8, opacity: 0.45 } : { scale: 1, rotateX: 0, rotateY: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            style={{ transformPerspective: 700 }}
-          >
-            <label className="sr-only" htmlFor="win-text">
-              {t.textLabel}
-            </label>
-            <textarea
-              id="win-text"
-              autoFocus
-              value={draft}
-              placeholder={t.prompt}
-              onChange={(e) => setDraft(e.target.value)}
-              disabled={busy}
-              aria-describedby="char-count"
-              aria-invalid={count > 180}
-            />
-            <p className={`character-count ${count > 180 ? 'error' : ''}`} id="char-count">
-              {count} / 180
-            </p>
-          </motion.div>
-          <fieldset disabled={busy}>
-            <legend>{t.chooseCategory}</legend>
-            <div className="category-grid">
-              {CATEGORIES.map((item) => (
-                <Press
-                  type="button"
-                  key={item}
-                  aria-pressed={category === item}
-                  className={`category-card${category === item ? ' selected' : ''}`}
-                  onClick={() => setCategory(item)}
-                >
-                  <span className="category-card-icon">
-                    <Icon name={item} size={22} />
-                  </span>
-                  <span className="category-card-name">{t[item]}</span>
-                  <span className="category-card-hint">{t[`${item}Hint` as keyof T]}</span>
-                </Press>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset disabled={busy}>
-            <legend>{t.chooseColor}</legend>
-            <div className="color-choices">
-              {COLORS.map((item) => (
-                <Press
-                  key={item}
-                  type="button"
-                  className={`color-choice ${color === item ? 'selected' : ''}`}
-                  style={{ backgroundColor: PALETTE[item], color: PALETTE[item] }}
-                  aria-label={t[item]}
-                  title={t[item]}
-                  aria-pressed={color === item}
-                  animate={color === item ? { scale: 1.14 } : { scale: 1 }}
-                  onClick={() => setColor(item)}
-                />
-              ))}
-            </div>
-            <p className="color-choice-label">{t[color]}</p>
-          </fieldset>
-          {error ? (
-            <p role="alert" className="error">
-              {error}
-            </p>
-          ) : null}
-          <Press
-            className="button primary fold-button"
-            type="submit"
-            sound="none"
-            disabled={busy || !draft.trim() || count > 180}
-          >
-            <Icon name="add-star" />
-            {busy ? t.saving : t.fold}
-          </Press>
-        </form>
-      )}
-    </Modal>
-  );
-}
+
 function SettingsPanel({
   prefs,
   t,

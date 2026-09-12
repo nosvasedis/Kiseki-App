@@ -126,7 +126,7 @@ export function Modal({
   busy?: boolean;
   feedback?: string;
   reduced?: boolean;
-  tone?: 'default' | 'reveal';
+  tone?: 'default' | 'reveal' | 'ritual';
   folding?: boolean;
   foldColor?: Color;
   foldCategory?: Category;
@@ -141,6 +141,9 @@ export function Modal({
   const finished = useRef(false);
   const timeout = useRef(0);
   const [closing, setClosing] = useState(false);
+  const opener = useRef<HTMLElement | null>(
+    typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
+  );
   const finish = () => {
     if (finished.current) return;
     finished.current = true;
@@ -168,7 +171,7 @@ export function Modal({
   };
   useLayoutEffect(() => {
     const dialog = ref.current!;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = opener.current;
     dialog.showModal();
     return () => {
       window.clearTimeout(timeout.current);
@@ -217,7 +220,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`modal${tone === 'reveal' ? ' modal-reveal' : ''}${folding ? ' is-folding' : ''}`}
+      className={`modal${tone === 'reveal' ? ' modal-reveal' : ''}${tone === 'ritual' ? ' modal-ritual' : ''}${folding ? ' is-folding' : ''}`}
       aria-labelledby="dialog-title"
       aria-busy={busy || folding}
       style={{

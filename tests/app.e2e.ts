@@ -62,7 +62,7 @@ test('long multilingual Wrapped text fits above the footer', async ({ page }) =>
     };
   });
   await page.getByRole('button', { name: 'Wrapped', exact: true }).click();
-  await page.getByRole('checkbox', { name: 'Include personal memories' }).check();
+  await page.getByRole('radio', { name: 'Your words' }).click();
   await expect(page.getByRole('button', { name: 'Download PNG' })).toBeEnabled();
   const calls = await page.evaluate(() =>
     (
@@ -123,7 +123,7 @@ test('physics stops when settled and while a modal is open', async ({ page }) =>
 async function ready(page: Page) {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Small things. Real miracles.' })).toBeVisible();
-  await expect(page.locator('.boot-screen')).toHaveCount(0, { timeout: 5000 });
+  await expect(page.locator('.boot-screen')).toHaveCount(0, { timeout: 8000 });
   await expect(page.locator('.app-header')).not.toContainText('奇跡');
   await expect(page.getByRole('link', { name: 'Kiseki' })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -132,9 +132,16 @@ async function dismissBanner(page: Page) {
   const banner = page.locator('.update-banner');
   if (await banner.isVisible()) await banner.getByRole('button', { name: 'Dismiss' }).click();
 }
+async function continueAdd(page: Page) {
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'What kind of Kiseki is this?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Fold a Kiseki', exact: true })).toBeVisible();
+}
 async function add(page: Page, text: string) {
   await page.getByRole('button', { name: 'Add a Kiseki', exact: true }).click();
   await page.getByRole('textbox', { name: 'Your Kiseki' }).fill(text);
+  await continueAdd(page);
   await page.getByRole('button', { name: 'Fold a Kiseki', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
@@ -198,6 +205,7 @@ test('failed write keeps draft and never adds a phantom star', async ({ page }) 
   await ready(page);
   await page.getByRole('button', { name: 'Add a Kiseki', exact: true }).click();
   await page.getByRole('textbox').fill('Still here if storage fails.');
+  await continueAdd(page);
   await page.evaluate(() => {
     const original = IDBObjectStore.prototype.add;
     Object.defineProperty(window, 'restoreIDBAdd', {
@@ -218,6 +226,7 @@ test('failed write keeps draft and never adds a phantom star', async ({ page }) 
   await page.evaluate(() => {
     (window as unknown as { restoreIDBAdd: () => void }).restoreIDBAdd();
   });
+  await continueAdd(page);
   await page.getByRole('button', { name: 'Fold a Kiseki', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect((await readDb(page)).stars).toHaveLength(1);
@@ -271,7 +280,7 @@ test('backup export/import, duplicate merge and exact Wrapped PNG', async ({ pag
   await dismissBanner(page);
   await page.getByRole('button', { name: 'Wrapped', exact: true }).click();
   await page.getByLabel('Month', { exact: true }).selectOption(key);
-  await page.getByRole('checkbox', { name: 'Include personal memories' }).check();
+  await page.getByRole('radio', { name: 'Your words' }).click();
   await expect(page.getByRole('button', { name: 'Download PNG' })).toBeEnabled();
   const pngDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download PNG' }).click();
@@ -314,6 +323,7 @@ test('full jar rotates on confirmation and never deletes prior stars', async ({ 
   await expect(page.locator('.jar-count')).toContainText('45 / 45');
   await page.getByRole('button', { name: 'Add a Kiseki', exact: true }).click();
   await page.getByRole('textbox').fill('The next chapter');
+  await continueAdd(page);
   await page.getByRole('button', { name: 'Fold a Kiseki', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Your 45 stars are safe');
   expect((await readDb(page)).stars).toHaveLength(45);
@@ -355,9 +365,9 @@ test('mobile layout, keyboard dialog, grapheme limit and all languages', async (
   await page.getByRole('button', { name: 'Add a Kiseki', exact: true }).click();
   await page.getByRole('textbox').fill('👨‍👩‍👧‍👦'.repeat(180));
   await expect(page.locator('#char-count')).toHaveText('180 / 180');
-  await expect(page.getByRole('button', { name: 'Fold a Kiseki' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled();
   await page.getByRole('textbox').fill('👨‍👩‍👧‍👦'.repeat(181));
-  await expect(page.getByRole('button', { name: 'Fold a Kiseki' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   await page.getByRole('textbox').fill('I made time to rest.');
   await page.screenshot({ path: join(evidence, 'mobile-add.png'), fullPage: true });
   await page.keyboard.press('Escape');

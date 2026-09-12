@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Download, Share2, EyeOff } from 'lucide-react';
+import { Download, Quote, Share2, Sparkles } from 'lucide-react';
 import { pastMonths, summarizeMonth, type Star, type Language } from '../lib/models';
 import { locale, type T } from '../lib/i18n';
 import { renderCard, canvasBlob } from '../lib/card';
@@ -24,7 +24,16 @@ export default function Wrapped({
   const canvas = useRef<HTMLCanvasElement>(null);
   const generation = useRef(0);
   const blob = useRef<Blob | null>(null);
+  const privacyName = useId();
+  const helpId = useId();
   const summary = summarizeMonth(stars, month);
+  const monthLabel = (() => {
+    const [y, m] = month.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(locale(language), {
+      month: 'long',
+      year: 'numeric',
+    });
+  })();
   useEffect(() => {
     const version = ++generation.current;
     let cancelled = false;
@@ -67,14 +76,52 @@ export default function Wrapped({
       setBusy(false);
     }
   };
+  const canShare = typeof navigator.share === 'function';
   return (
     <section className="page wrapped-page">
-      <header className="page-heading">
+      <header className="page-heading wrapped-heading">
+        <p className="wrapped-kicker">{t.wrapped}</p>
         <h1>{t.wrappedTitle}</h1>
         <p>{t.wrappedIntro}</p>
       </header>
       <div className="wrapped-layout">
-        <div className="wrapped-controls">
+        <div className="wrapped-stage">
+          <div className="wrapped-glow" aria-hidden="true" />
+          <span className="wrapped-spark wrapped-spark-a" aria-hidden="true" />
+          <span className="wrapped-spark wrapped-spark-b" aria-hidden="true" />
+          <span className="wrapped-spark wrapped-spark-c" aria-hidden="true" />
+          <span className="wrapped-spark wrapped-spark-d" aria-hidden="true" />
+          <figure className={`wrapped-frame${ready ? ' is-ready' : ''}`}>
+            <span className="wrapped-corner wrapped-corner-tr" aria-hidden="true" />
+            <span className="wrapped-corner wrapped-corner-bl" aria-hidden="true" />
+            <motion.canvas
+              className="wrapped-card"
+              ref={canvas}
+              role="img"
+              aria-label={`${t.wrapped} · ${monthLabel} · ${summary.total} ${t.wins}`}
+              initial={{ opacity: 0.2, y: 16 }}
+              animate={{ opacity: ready ? 1 : 0.38, y: ready ? 0 : 10 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            />
+            {ready ? null : <div className="wrapped-veil">{t.preparing}</div>}
+          </figure>
+        </div>
+        <div className="wrapped-panel">
+          {summary.total > 0 ? (
+            <div className="wrapped-stats">
+              <p className="wrapped-count">{summary.total}</p>
+              <p className="wrapped-count-meta">
+                {t.wins}
+                {summary.dominant ? ` · ${t[summary.dominant]}` : ''}
+                {summary.hour !== null ? ` · ${String(summary.hour).padStart(2, '0')}:00` : ''}
+              </p>
+            </div>
+          ) : (
+            <div className="empty-note">
+              <h2>{t.wrappedEmpty}</h2>
+              <p>{t.wrappedEmptyText}</p>
+            </div>
+          )}
           <label className="field-label" htmlFor="month">
             {t.month}
           </label>
@@ -91,57 +138,55 @@ export default function Wrapped({
               );
             })}
           </select>
-          <p className="muted small">{t.pastMonthOnly}</p>
-          {summary.total === 0 ? (
-            <div className="empty-note">
-              <h2>{t.wrappedEmpty}</h2>
-              <p>{t.wrappedEmptyText}</p>
-            </div>
+          <p className="muted small wrapped-hint">{t.pastMonthOnly}</p>
+          {summary.total > 0 ? (
+            <fieldset className="wrapped-privacy" aria-describedby={helpId}>
+              <legend>{t.includeMode}</legend>
+              <div className="wrapped-choice">
+                <label>
+                  <input
+                    type="radio"
+                    name={privacyName}
+                    checked={!include}
+                    onChange={() => setInclude(false)}
+                  />
+                  <Sparkles size={16} />
+                  {t.hideText}
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name={privacyName}
+                    checked={include}
+                    onChange={() => setInclude(true)}
+                  />
+                  <Quote size={16} />
+                  {t.includeText}
+                </label>
+              </div>
+              <p id={helpId} className="muted small wrapped-privacy-help">
+                {include ? t.includeHelpOn : t.includeHelpOff}
+              </p>
+            </fieldset>
           ) : null}
-          <label className="toggle-row">
-            <span>
-              <EyeOff size={18} />
-              {t.includeText}
-            </span>
-            <input
-              type="checkbox"
-              checked={include}
-              onChange={(e) => setInclude(e.target.checked)}
-            />
-          </label>
-          <Press
-            className="button primary"
-            disabled={busy || !ready}
-            onClick={() => void output(false)}
-          >
-            <Download size={18} />
-            {ready ? t.download : t.preparing}
-          </Press>
-          {typeof navigator.share === 'function' ? (
-            <Press
-              className="button secondary"
-              disabled={busy || !ready}
-              onClick={() => void output(true)}
-            >
-              <Share2 size={18} />
-              {t.share}
+          <div className="wrapped-actions">
+            <Press className="button primary" disabled={busy || !ready} onClick={() => void output(false)}>
+              <Download size={18} />
+              {ready ? t.download : t.preparing}
             </Press>
-          ) : null}
+            {canShare ? (
+              <Press className="button secondary compact" disabled={busy || !ready} onClick={() => void output(true)}>
+                <Share2 size={16} />
+                {t.share}
+              </Press>
+            ) : null}
+          </div>
           {error ? (
             <p role="alert" className="error">
               {error}
             </p>
           ) : null}
         </div>
-        <motion.canvas
-          className="wrapped-card"
-          ref={canvas}
-          role="img"
-          aria-label={`${t.wrapped} · ${month} · ${summary.total} ${t.wins}`}
-          initial={{ opacity: 0.25, y: 12 }}
-          animate={{ opacity: ready ? 1 : 0.35, y: ready ? 0 : 8 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        />
       </div>
     </section>
   );

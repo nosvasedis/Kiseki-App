@@ -6,7 +6,7 @@ export const duration = {
   tap: 0.16,
   modal: 0.35,
   page: 0.45,
-  boot: 1.15,
+  boot: 0.9,
   toast: 0.28,
 } as const;
 
@@ -61,6 +61,23 @@ export const toastFx: Variants = {
   },
   exit: { opacity: 0, y: 10, scale: 0.98, transition: { duration: 0.22 } },
 };
+
+export const addStep = (dir: number): Variants => ({
+  enter: { opacity: 0, x: dir * 32, filter: 'blur(6px)' },
+  center: {
+    opacity: 1,
+    x: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.4, ease: fairytale },
+  },
+  exit: {
+    opacity: 0,
+    x: dir * -24,
+    filter: 'blur(6px)',
+    pointerEvents: 'none',
+    transition: { duration: 0.26, ease: fairytale },
+  },
+});
 
 export const bootMark: Variants = {
   hidden: { opacity: 0, scale: 0.62, rotate: -12 },
