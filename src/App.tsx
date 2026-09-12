@@ -29,7 +29,7 @@ import {
   setAmbientMuted,
   ShakeDetector,
 } from './lib/sensory';
-import { fadeUp, listItem, listStagger, toastFx, duration, fairytale } from './lib/fx';
+import { fadePage, listItem, listStagger, toastFx, duration, fairytale } from './lib/fx';
 import { BootScreen } from './components/Boot';
 import { JarCanvas } from './components/JarCanvas';
 import { Modal } from './components/Modal';
@@ -319,20 +319,22 @@ export default function App() {
                       {currentStars.length} / {CAPACITY} · {t.count}
                     </p>
                   ) : null}
-                  <Press
-                    className="button primary add-button"
-                    onClick={() => {
-                      unlockAudio();
-                      setOverlay('add');
-                    }}
-                  >
-                    <Plus size={21} />
-                    {t.add}
-                  </Press>
-                  <Press className="button secondary" onClick={recallAction} disabled={recalling}>
-                    <Icon name="shake-jar" />
-                    {t.recall}
-                  </Press>
+                  <div className="ritual-buttons">
+                    <Press
+                      className="button primary add-button"
+                      onClick={() => {
+                        unlockAudio();
+                        setOverlay('add');
+                      }}
+                    >
+                      <Plus size={21} />
+                      {t.add}
+                    </Press>
+                    <Press className="button secondary" onClick={recallAction} disabled={recalling}>
+                      <Icon name="shake-jar" />
+                      {t.recall}
+                    </Press>
+                  </div>
                 </div>
                 <p className="privacy-line">
                   <LockKeyhole size={14} />
@@ -344,7 +346,7 @@ export default function App() {
                   <motion.section
                     className="page memories-page"
                     key="memories"
-                    variants={fadeUp}
+                    variants={fadePage}
                     initial={prefs.reducedMotion ? false : 'hidden'}
                     animate="show"
                     exit="exit"
@@ -464,11 +466,11 @@ export default function App() {
                       </Press>
                     ) : null}
                   </motion.section>
-                ) : null}
-                {view === 'wrapped' ? (
+                ) : view === 'wrapped' ? (
                   <motion.div
+                    className="page-shell"
                     key="wrapped"
-                    variants={fadeUp}
+                    variants={fadePage}
                     initial={prefs.reducedMotion ? false : 'hidden'}
                     animate="show"
                     exit="exit"

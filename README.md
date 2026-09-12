@@ -39,7 +39,7 @@ Kiseki (奇跡) is a private jar on your device. You fold that moment into an or
 
 ## The jar
 
-One glass jar, under a Kyoto night sky. Each Kiseki is a colored origami star that falls, rests, and lives among the others. Forty-five stars fill a jar. When it is full, you set it on the shelf and begin another — for free, without losing a thing.
+One glass jar, under a Kyoto night sky. Each Kiseki is a colored origami star that falls, rests, and lives among the others. Thirty-five stars fill a jar. When it is full, you set it on the shelf and begin another — for free, without losing a thing.
 
 Shake the jar, or simply ask it to remember. A star rises. The moment returns.
 

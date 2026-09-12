@@ -189,8 +189,8 @@ input[type='file'].sr-only {
 .app-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  overflow-x: hidden;
+  overflow-x: clip;
+  overflow-y: auto;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   position: relative;
@@ -428,8 +428,12 @@ input[type='file'].sr-only {
 }
 .jar-page {
   text-align: center;
-  min-height: 100%;
-  padding: 43px 20px 24px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 20px 8px;
   transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .jar-page.is-idle {
@@ -446,8 +450,12 @@ input[type='file'].sr-only {
   visibility: visible;
   z-index: 1;
 }
+.hero-heading {
+  flex: none;
+  max-width: 36em;
+}
 .hero-heading h1 {
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 .hero-heading > p {
   color: var(--muted);
@@ -456,15 +464,22 @@ input[type='file'].sr-only {
 }
 .jar-stage {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 160px;
+  width: 100%;
   max-width: 900px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .jar-scene {
-  width: 370px;
-  height: 389px;
+  height: min(389px, 100%);
+  width: auto;
+  aspect-ratio: 370 / 389;
+  max-width: min(370px, calc(100% - 8px));
   position: relative;
   margin: 0 auto;
-  max-width: 100%;
   isolation: isolate;
   overflow: visible;
   --jar-glow: 96;
@@ -546,19 +561,30 @@ input[type='file'].sr-only {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   margin-top: 0;
+  flex: none;
+  width: 100%;
+  max-width: 560px;
+}
+.ritual-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
 }
 .jar-caption {
   font-family: var(--font-serif);
-  font-size: 17px;
-  margin-bottom: 7px;
+  font-size: 16px;
+  margin-bottom: 2px;
 }
 .jar-count {
   font-size: 11px;
   letter-spacing: 0.8px;
   color: var(--muted);
-  margin: -10px 0 3px;
+  margin: 0 0 2px;
 }
 .button {
   min-height: 54px;
@@ -598,13 +624,18 @@ input[type='file'].sr-only {
   color: #d8dceb;
 }
 .ritual-actions .button {
-  width: 340px;
-  max-width: 100%;
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  padding: 11px 16px;
+  min-height: 48px;
+  font-size: 14px;
 }
 .ritual-actions .primary {
   font-family: var(--font-serif);
-  font-size: 19px;
-  min-height: 58px;
+  font-size: 17px;
+  min-height: 48px;
 }
 .compact {
   padding: 9px 18px;
@@ -619,7 +650,8 @@ input[type='file'].sr-only {
   color: #9ca8c1;
   font-size: 11px;
   letter-spacing: 0.2px;
-  margin: 31px 0 0;
+  margin: 8px 0 0;
+  flex: none;
 }
 .page-footer {
   display: flex;
@@ -628,7 +660,12 @@ input[type='file'].sr-only {
   align-items: center;
   font-size: 12px;
   color: var(--muted);
-  padding: 24px;
+  padding: 12px 24px 16px;
+  flex: none;
+}
+.page-shell {
+  width: 100%;
+  max-width: 100%;
 }
 .page {
   max-width: 1040px;
@@ -1762,12 +1799,13 @@ input[type='file'].sr-only {
 }
 .wrapped-page {
   max-width: 1180px;
-  padding-top: 28px;
-  padding-bottom: 40px;
+  width: 100%;
+  padding-top: 20px;
+  padding-bottom: 24px;
   min-height: 0;
 }
 .wrapped-heading {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 .wrapped-heading p {
   max-width: 34em;
@@ -1776,9 +1814,10 @@ input[type='file'].sr-only {
 }
 .wrapped-layout {
   display: grid;
-  grid-template-columns: auto minmax(280px, 1fr);
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
   gap: 28px 36px;
   max-width: 1040px;
+  width: 100%;
   margin: 0 auto;
   align-items: start;
 }
@@ -1787,6 +1826,8 @@ input[type='file'].sr-only {
   display: grid;
   place-items: center;
   justify-self: center;
+  min-width: 0;
+  width: min(100%, calc(min(56svh, 500px) * 9 / 16 + 32px));
   padding: 12px 16px 20px;
 }
 .wrapped-glow {
@@ -1841,7 +1882,8 @@ input[type='file'].sr-only {
   position: relative;
   z-index: 1;
   margin: 0;
-  width: min(100%, calc(min(56svh, 500px) * 9 / 16));
+  width: 100%;
+  max-width: 100%;
   padding: 9px;
   border-radius: 22px;
   background:
@@ -1909,6 +1951,7 @@ input[type='file'].sr-only {
   width: 100%;
   height: auto;
   aspect-ratio: 9 / 16;
+  max-width: 100%;
   border-radius: 14px;
   box-shadow: 0 10px 30px #0005;
   background: #0d1833;
@@ -1926,6 +1969,7 @@ input[type='file'].sr-only {
   pointer-events: none;
 }
 .wrapped-panel {
+  min-width: 0;
   padding: 26px 26px 28px;
   border-radius: 24px;
   border: 1px solid #e7b86633;
@@ -2308,15 +2352,9 @@ input[type='file'].sr-only {
   border-color: #86c9a855;
 }
 @media (min-width: 1400px) {
-  .jar-page {
-    padding-top: 55px;
-  }
   .jar-scene {
-    width: 410px;
-    height: 430px;
-  }
-  .ritual-actions {
-    margin-top: 3px;
+    height: min(430px, 100%);
+    max-width: min(410px, calc(100% - 8px));
   }
 }
 @media (max-width: 760px) {
@@ -2369,25 +2407,24 @@ input[type='file'].sr-only {
     bottom: 6px;
   }
   .jar-page {
-    min-height: 100%;
-    padding: 31px 18px 24px;
+    height: 100%;
+    padding: 8px 16px 8px;
   }
   .hero-heading h1 {
-    font-size: 29px;
+    font-size: 26px;
     max-width: 500px;
-    margin: 0 auto 13px;
+    margin: 0 auto 4px;
     letter-spacing: -0.8px;
   }
   .hero-heading > p {
     font-size: 13px;
     max-width: 320px;
     margin: auto;
-    line-height: 1.8;
+    line-height: 1.45;
   }
   .jar-scene {
-    width: 320px;
-    height: 336px;
-    margin-top: -6px;
+    height: min(336px, 100%);
+    max-width: min(320px, calc(100% - 8px));
   }
   .constellation {
     width: 60px;
@@ -2402,26 +2439,33 @@ input[type='file'].sr-only {
     top: 80px;
   }
   .jar-caption {
-    font-size: 14px;
-    margin-bottom: 6px;
+    font-size: 13px;
+    margin-bottom: 0;
   }
   .jar-count {
     font-size: 10px;
   }
   .ritual-actions {
-    gap: 10px;
+    gap: 4px;
+    max-width: 100%;
+  }
+  .ritual-buttons {
+    gap: 8px;
   }
   .ritual-actions .button {
-    width: 300px;
+    width: auto;
+    min-height: 46px;
+    padding: 8px 10px;
+    font-size: 13px;
   }
   .ritual-actions .primary {
-    font-size: 17px;
-    min-height: 56px;
+    font-size: 15px;
+    min-height: 46px;
   }
   .privacy-line {
     font-size: 10px;
-    margin-top: 25px;
-    line-height: 1.6;
+    margin-top: 6px;
+    line-height: 1.4;
   }
   .page {
     padding: 32px 22px 42px;
@@ -2478,15 +2522,16 @@ input[type='file'].sr-only {
     font-size: 12px;
   }
   .wrapped-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     max-width: 420px;
   }
   .wrapped-stage {
+    width: min(190px, 58vw, calc(min(30svh, 280px) * 9 / 16 + 16px));
     padding: 2px 8px 4px;
   }
   .wrapped-frame {
-    width: min(58vw, calc(min(30svh, 280px) * 9 / 16), 190px);
+    width: 100%;
   }
   .wrapped-heading h1 + p {
     display: none;
@@ -2594,20 +2639,19 @@ input[type='file'].sr-only {
     padding: 0 36px;
   }
   .jar-page {
-    padding-top: 25px;
-  }
-  .jar-scene {
-    width: 310px;
-    height: 326px;
+    padding-top: 6px;
   }
   .hero-heading h1 {
-    font-size: 34px;
+    font-size: 28px;
+  }
+  .hero-heading > p {
+    font-size: 14px;
   }
   .privacy-line {
-    margin-top: 20px;
+    margin-top: 6px;
   }
-  .wrapped-frame {
-    width: min(100%, calc(min(48svh, 420px) * 9 / 16));
+  .wrapped-stage {
+    width: min(100%, calc(min(48svh, 420px) * 9 / 16 + 32px));
   }
   .wrapped-page {
     padding-top: 16px;

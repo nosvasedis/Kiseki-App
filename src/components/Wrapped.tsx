@@ -47,8 +47,8 @@ export default function Wrapped({
         if (cancelled || version !== generation.current) return;
         const target = canvas.current;
         if (target) {
-          target.width = 1080;
-          target.height = 1920;
+          if (target.width !== 1080) target.width = 1080;
+          if (target.height !== 1920) target.height = 1920;
           target.getContext('2d')?.drawImage(offscreen, 0, 0);
           blob.current = png;
           setReady(true);
@@ -96,10 +96,12 @@ export default function Wrapped({
             <motion.canvas
               className="wrapped-card"
               ref={canvas}
+              width={1080}
+              height={1920}
               role="img"
               aria-label={`${t.wrapped} · ${monthLabel} · ${summary.total} ${t.wins}`}
-              initial={{ opacity: 0.2, y: 16 }}
-              animate={{ opacity: ready ? 1 : 0.38, y: ready ? 0 : 10 }}
+              initial={{ opacity: 0.2 }}
+              animate={{ opacity: ready ? 1 : 0.38 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             />
             {ready ? null : <div className="wrapped-veil">{t.preparing}</div>}

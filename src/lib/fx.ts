@@ -22,6 +22,15 @@ export const fadeUp: Variants = {
   exit: { opacity: 0, y: -12, transition: { duration: 0.28, ease: fairytale } },
 };
 
+export const fadePage: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { duration: duration.page, ease: fairytale },
+  },
+  exit: { opacity: 0, transition: { duration: 0.22, ease: fairytale } },
+};
+
 export const listStagger: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
